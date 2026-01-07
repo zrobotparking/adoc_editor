@@ -5,15 +5,26 @@ interface SourceEditorProps {
     value: string;
     onChange: (value: string) => void;
     lintErrors?: LintError[];
+    onScroll?: (scrollTop: number, scrollRatio: number) => void;
 }
 
-export const SourceEditor: React.FC<SourceEditorProps> = ({ value, onChange, lintErrors = [] }) => {
+export const SourceEditor: React.FC<SourceEditorProps> = ({ value, onChange, lintErrors = [], onScroll }) => {
     const textareaRef = React.useRef<HTMLTextAreaElement>(null);
     const gutterRef = React.useRef<HTMLDivElement>(null);
 
     const handleScroll = () => {
         if (textareaRef.current && gutterRef.current) {
-            gutterRef.current.scrollTop = textareaRef.current.scrollTop;
+            const scrollTop = textareaRef.current.scrollTop;
+            const scrollHeight = textareaRef.current.scrollHeight;
+            const clientHeight = textareaRef.current.clientHeight;
+            
+            gutterRef.current.scrollTop = scrollTop;
+            
+            // Notify parent
+            if (onScroll) {
+                const ratio = scrollTop / (scrollHeight - clientHeight || 1);
+                onScroll(scrollTop, ratio);
+            }
         }
     };
 

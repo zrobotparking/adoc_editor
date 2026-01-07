@@ -46,8 +46,13 @@ function App() {
       return linter.lint(content);
   }, [content]);
 
+  // Sync Scroll State
+  const [syncScroll, setSyncScroll] = useState(true);
+  const previewRef = React.useRef<HTMLDivElement>(null);
+
   // Handle updates from Visual Editor (both Table and Text) via ID
   const handleBlockUpdate = useCallback((id: string, updatedData: any) => {
+      // ... (existing logic)
       const targetBlock = blocks.find(b => b.id === id);
       if (!targetBlock) return;
       
@@ -85,6 +90,16 @@ function App() {
       setActiveBlockId(null);
   }, []);
 
+  // Sync Scroll Handler
+  const handleEditorScroll = useCallback((scrollTop: number, ratio: number) => {
+      if (syncScroll && previewRef.current) {
+          const previewEl = previewRef.current;
+          const targetScroll = ratio * (previewEl.scrollHeight - previewEl.clientHeight);
+          previewEl.scrollTop = targetScroll;
+      }
+  }, [syncScroll]);
+
+
   // ESC key handler to exit edit mode
   useEffect(() => {
       const handleKeyDown = (e: KeyboardEvent) => {
@@ -99,15 +114,19 @@ function App() {
 
   return (
     <MainLayout
+      isSyncScroll={syncScroll}
+      onToggleSyncScroll={() => setSyncScroll(!syncScroll)}
       editor={
         <SourceEditor 
           value={content} 
           onChange={setContent} 
           lintErrors={lintErrors}
+          onScroll={handleEditorScroll}
         />
       }
       preview={
         <DocPreview 
+            ref={previewRef}
             blocks={blocks}
             onEditBlock={handleEditBlock}
             onUpdateBlock={handleBlockUpdate}

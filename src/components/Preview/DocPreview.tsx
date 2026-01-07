@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { forwardRef } from 'react';
 import { type Block } from '../../core/types';
 import { PreviewBlock } from './PreviewBlock';
 import './asciidoc.css';
@@ -11,15 +11,15 @@ interface DocPreviewProps {
     activeBlockId: string | null;
 }
 
-export const DocPreview: React.FC<DocPreviewProps> = ({ 
+export const DocPreview = forwardRef<HTMLDivElement, DocPreviewProps>(({ 
     blocks, 
     onEditBlock, 
     onUpdateBlock,
     onCancelEdit,
     activeBlockId
-}) => {
+}, ref) => {
     return (
-        <div className="asciidoc-preview prose max-w-none p-4 bg-white text-black min-h-full">
+        <div ref={ref} className="asciidoc-preview prose max-w-none p-4 bg-white text-black h-full overflow-auto">
             {blocks.map((block) => (
                 <PreviewBlock 
                     key={block.id} 
@@ -32,4 +32,6 @@ export const DocPreview: React.FC<DocPreviewProps> = ({
             ))}
         </div>
     );
-};
+});
+
+DocPreview.displayName = 'DocPreview';
