@@ -41,9 +41,9 @@ export const PreviewBlock: React.FC<PreviewBlockProps> = ({
 
     if (isEditing) {
         return (
-            <div className="my-4 border-2 border-primary rounded-lg shadow-lg bg-white overflow-hidden">
-                <div className="flex justify-between items-center p-2 bg-gray-100 border-b">
-                    <span className="font-bold text-sm text-gray-600 uppercase">
+            <div className="my-4 border-2 border-blue-500 rounded-lg shadow-lg bg-white dark:bg-gray-800 overflow-hidden">
+                <div className="flex justify-between items-center p-2 bg-gray-100 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
+                    <span className="font-bold text-sm text-gray-600 dark:text-gray-200 uppercase">
                         Editing {block.type}
                     </span>
                     <div className="space-x-2">

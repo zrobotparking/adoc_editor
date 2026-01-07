@@ -120,15 +120,16 @@ function App() {
   };
 
   return (
-    <MainLayout
-      isSyncScroll={syncScroll}
-      onToggleSyncScroll={() => setSyncScroll(!syncScroll)}
-      theme={theme}
-      onThemeChange={setTheme}
-      explorer={
-          <FileExplorer onFileUpload={handleFileUpload} />
-      }
-      editor={
+    <div className={theme === 'dark' ? 'dark' : ''}>
+        <MainLayout
+            isSyncScroll={syncScroll}
+            onToggleSyncScroll={() => setSyncScroll(!syncScroll)}
+            theme={theme}
+            onThemeChange={setTheme}
+            explorer={
+                <FileExplorer onFileUpload={handleFileUpload} />
+            }
+            editor={
         <SourceEditor 
           value={content} 
           onChange={setContent} 
@@ -147,6 +148,7 @@ function App() {
         />
       }
     />
+    </div>
   );
 }
 
