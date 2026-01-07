@@ -28,10 +28,7 @@ export const PreviewBlock: React.FC<PreviewBlockProps> = ({
         if (!isEditing) {
             // Render preview based on block type
             if (block.type === 'text') {
-                // Robustness fix: Inject blank lines before headers to prevent metadata swallowing if user packs them tightly
-                // This allows "= T\n== T" to render as expected (H1, H2) instead of H1 + Author Info.
-                const processedContent = block.content.replace(/^(=+)/gm, '\n\n$1');
-                const converted = asciidoctor.convert(processedContent, { safe: 'safe', attributes: { 'showtitle': true } });
+                const converted = asciidoctor.convert(block.content, { safe: 'safe', attributes: { 'showtitle': true } });
                 setHtml(converted as string);
             } else if (block.type === 'table') {
                 const serializer = new BasicTableSerializer();

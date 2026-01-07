@@ -9,6 +9,7 @@ export class BasicPipeParser implements TableParser {
     parse(input: string): Block[] {
         const lines = input.split('\n');
         const blocks: Block[] = [];
+        let blockIndex = 0;
         
         let inTable = false;
         let tableStartLine = -1;
@@ -29,7 +30,7 @@ export class BasicPipeParser implements TableParser {
                     // 1. Flush any pending text block before this table
                     if (textContentLines.length > 0) {
                         blocks.push({
-                            id: uuid(),
+                            id: `block-${blockIndex++}`,
                             type: 'text',
                             content: textContentLines.join('\n'),
                             startLine: textStartLine,
@@ -48,10 +49,10 @@ export class BasicPipeParser implements TableParser {
                     inTable = false;
                     const tableEndLine = i;
                     
-                    const table = this.parseTableContent(tableContentLines);
+                    const table = this.parseTableContent(tableContentLines, blockIndex);
                     if (table) {
                         blocks.push({
-                            id: uuid(),
+                            id: `block-${blockIndex++}`,
                             type: 'table',
                             table,
                             startLine: tableStartLine,
@@ -78,7 +79,7 @@ export class BasicPipeParser implements TableParser {
         // Flush any remaining text at the end of file
         if (textContentLines.length > 0) {
              blocks.push({
-                id: uuid(),
+                id: `block-${blockIndex++}`,
                 type: 'text',
                 content: textContentLines.join('\n'),
                 startLine: textStartLine,
@@ -89,7 +90,7 @@ export class BasicPipeParser implements TableParser {
         return blocks;
     }
 
-    private parseTableContent(lines: string[]): Table | null {
+    private parseTableContent(lines: string[], blockIndex: number): Table | null {
          // Filter Empty lines
          const contentLines = lines.filter(l => l.trim() !== '');
          
@@ -97,7 +98,7 @@ export class BasicPipeParser implements TableParser {
  
          const rows: Row[] = [];
          
-         contentLines.forEach(line => {
+         contentLines.forEach((line, rowIndex) => {
              // Split line by '|'
              // Example: | Cell 1 | Cell 2
              // Note: This logic assumes simple pipe tables. 
@@ -109,8 +110,8 @@ export class BasicPipeParser implements TableParser {
              const parts = processingLine.split('|');
              
              if (parts.length > 0) {
-                 const cells: Cell[] = parts.map(part => ({
-                     id: uuid(),
+                 const cells: Cell[] = parts.map((part, colIndex) => ({
+                     id: `cell-${blockIndex}-${rowIndex}-${colIndex}`,
                      content: part.trim(),
                      rowSpan: 1,
                      colSpan: 1
@@ -119,7 +120,7 @@ export class BasicPipeParser implements TableParser {
                  // Only add if we successfully parsed cells
                  if (cells.length > 0) {
                      rows.push({
-                         id: uuid(),
+                         id: `row-${blockIndex}-${rowIndex}`,
                          cells
                      });
                  }
@@ -129,7 +130,7 @@ export class BasicPipeParser implements TableParser {
          if (rows.length === 0) return null;
  
          return {
-             id: uuid(),
+             id: `table-${blockIndex}`,
              rows
          };
     }

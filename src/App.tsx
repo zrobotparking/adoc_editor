@@ -26,6 +26,10 @@ Here is some text between tables.
 |===
 `;
 
+import { AsciiDocLinter } from './core/Linter';
+
+// ... (previous imports)
+
 function App() {
   const [content, setContent] = useState(INITIAL_CONTENT);
   const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
@@ -34,6 +38,12 @@ function App() {
   const blocks = useMemo(() => {
     const parser = new BasicPipeParser();
     return parser.parse(content);
+  }, [content]);
+
+  // Lint Content
+  const lintErrors = useMemo(() => {
+      const linter = new AsciiDocLinter();
+      return linter.lint(content);
   }, [content]);
 
   // Handle updates from Visual Editor (both Table and Text) via ID
@@ -93,6 +103,7 @@ function App() {
         <SourceEditor 
           value={content} 
           onChange={setContent} 
+          lintErrors={lintErrors}
         />
       }
       preview={

@@ -20,7 +20,12 @@ export const VisualTextEditor: React.FC<VisualTextEditorProps> = ({ initialConte
     const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
         const newValue = e.target.value;
         setValue(newValue);
-        onUpdate(newValue); // Sync back immediately
+    };
+
+    const handleBlur = () => {
+        if (value !== initialContent) {
+           onUpdate(value);
+        }
     };
 
     return (
@@ -28,6 +33,7 @@ export const VisualTextEditor: React.FC<VisualTextEditorProps> = ({ initialConte
             ref={textareaRef}
             value={value}
             onChange={handleChange}
+            onBlur={handleBlur}
             className="w-full p-4 border-none outline-none resize-none font-mono bg-white text-black"
             style={{ minHeight: '100px', display: 'block', overflow: 'hidden' }}
             autoFocus
