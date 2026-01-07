@@ -17,7 +17,7 @@ export class BasicPipeParser implements TableParser {
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i].trim();
             
-            if (line === '|===') {
+            if (/^\|={3,}$/.test(line)) {
                 if (!inTable) {
                     // Start of a table
                     inTable = true;

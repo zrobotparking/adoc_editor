@@ -50,14 +50,9 @@ function App() {
       // Split content into lines to replace the exact block
       const lines = content.split('\n');
       
-      // We need to replace lines from currentBlock.startLine to currentBlock.endLine
-      // with the new content.
-      // Note: newTableAsciiDoc might have different number of lines
-      
       const preBlock = lines.slice(0, currentBlock.startLine);
       const postBlock = lines.slice(currentBlock.endLine + 1);
       
-      // Join to ensure clean newlines
       const newContent = [
           ...preBlock,
           newTableAsciiDoc,
@@ -83,6 +78,25 @@ function App() {
       ? tableBlocks[activeTableIndex].table 
       : null;
 
+  /* Inline Editor Node construction */
+  const inlineEditor = editMode === 'visual-table' && currentTableData ? (
+      <div className="border border-blue-500 shadow-xl my-4">
+          <div className="flex justify-between items-center p-2 bg-blue-50 border-b border-blue-200">
+              <span className="text-xs font-bold text-blue-800">EDITING TABLE</span>
+              <button 
+                  onClick={() => setEditMode('preview')}
+                  className="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700"
+              >
+                  Done
+              </button>
+          </div>
+          <VisualTableEditor 
+              data={currentTableData} 
+              onUpdate={handleTableUpdate}
+          />
+      </div>
+  ) : null;
+
   return (
     <MainLayout
       editor={
@@ -92,31 +106,14 @@ function App() {
         />
       }
       preview={
-        editMode === 'visual-table' && currentTableData ? (
-            <div className="flex flex-col h-full bg-[#252526]">
-                <div className="flex justify-between items-center p-2 bg-[#333333] border-b border-[#3c3c3c]">
-                    <span className="text-xs font-bold text-white uppercase tracking-wider">
-                        Visual Table Editor (Table #{activeTableIndex + 1})
-                    </span>
-                    <button 
-                        onClick={() => setEditMode('preview')}
-                        className="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:opacity-80"
-                    >
-                        Done
-                    </button>
-                </div>
-                <VisualTableEditor 
-                    data={currentTableData} 
-                    onUpdate={handleTableUpdate}
-                />
-            </div>
-        ) : (
-            <DocPreview 
-                content={content} 
-                onEditTable={enterTableEdit}
-                onEditText={enterTextEdit}
-            />
-        )
+        <DocPreview 
+            content={content} 
+            onEditTable={enterTableEdit}
+            onEditText={enterTextEdit}
+            activeTableIndex={activeTableIndex}
+            isEditing={editMode === 'visual-table'}
+            editorNode={inlineEditor}
+        />
       }
     />
   );
