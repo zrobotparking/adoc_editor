@@ -1,4 +1,5 @@
-import React, { type ReactNode } from 'react';
+import React, { type ReactNode, useState } from 'react';
+import { SettingsPanel } from '../Settings/SettingsPanel';
 
 interface MainLayoutProps {
   explorer?: ReactNode;
@@ -6,6 +7,9 @@ interface MainLayoutProps {
   preview: ReactNode;
   isSyncScroll?: boolean;
   onToggleSyncScroll?: () => void;
+  // Theme props
+  theme?: 'light' | 'dark';
+  onThemeChange?: (theme: 'light' | 'dark') => void;
 }
 
 export const MainLayout: React.FC<MainLayoutProps> = ({ 
@@ -13,23 +17,70 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
   editor, 
   preview,
   isSyncScroll = true,
-  onToggleSyncScroll
+  onToggleSyncScroll,
+  theme = 'dark',
+  onThemeChange
 }) => {
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
+  // Theme Classes
+  const bgClass = theme === 'dark' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-black';
+  const borderClass = theme === 'dark' ? 'border-gray-700' : 'border-gray-300';
+  const headerBgClass = theme === 'dark' ? 'bg-gray-800' : 'bg-gray-200';
+  const sidebarBgClass = theme === 'dark' ? 'bg-gray-800' : 'bg-gray-200';
+
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-gray-900 text-white">
-      {/* Left Pane: Project Explorer */}
-      <div className="w-64 border-r border-gray-700 flex flex-col">
-        <div className="p-3 border-b border-gray-700 font-bold bg-gray-800">
-          Explorer
+    <div className={`flex h-screen w-screen overflow-hidden ${bgClass}`}>
+      {/* Left Pane: Project Explorer (Collapsible) */}
+      <div 
+        className={`${
+          isSidebarCollapsed ? 'w-0' : 'w-64'
+        } border-r ${borderClass} flex flex-col transition-all duration-300 relative`}
+      >
+        <div className={`p-3 border-b ${borderClass} font-bold ${headerBgClass} flex justify-between items-center whitespace-nowrap overflow-hidden`}>
+          <span>Explorer</span>
+          <button onClick={() => setIsSidebarCollapsed(true)} className="p-1 hover:opacity-75 rounded">
+             &lt;
+          </button>
         </div>
-        <div className="flex-1 overflow-auto p-2">
-          {explorer || <div className="text-gray-500 text-sm p-2">No Folder Opened</div>}
+        <div className="flex-1 overflow-auto p-2 whitespace-nowrap">
+          {!isSidebarCollapsed && (explorer || <div className="opacity-50 text-sm p-2">No Folder Opened</div>)}
         </div>
       </div>
+      
+      {/* Sidebar Toggle Button (Visible when collapsed) */}
+      {isSidebarCollapsed && (
+          <div className={`border-r ${borderClass} ${sidebarBgClass} flex flex-col items-center py-2 w-10 relative`}>
+              <button 
+                onClick={() => setIsSidebarCollapsed(false)} 
+                className="p-2 hover:opacity-75 rounded opacity-70 hover:opacity-100 mb-4"
+                title="Expand Explorer"
+              >
+                  📁
+              </button>
+              {/* Settings Trigger */}
+              <div 
+                className="mt-auto p-2 hover:opacity-75 rounded cursor-pointer opacity-70 hover:opacity-100" 
+                title="Settings"
+                onClick={() => setIsSettingsOpen(!isSettingsOpen)}
+              >
+                  ⚙️
+              </div>
+              
+              {/* Settings Panel Popover */}
+              <SettingsPanel 
+                isOpen={isSettingsOpen} 
+                onClose={() => setIsSettingsOpen(false)}
+                theme={theme}
+                onThemeChange={onThemeChange || (() => {})}
+              />
+          </div>
+      )}
 
       {/* Middle Pane: Source Editor */}
-      <div className="flex-1 flex flex-col border-r border-gray-700 min-w-[300px]">
-         <div className="p-2 border-b border-gray-700 bg-gray-800 text-sm font-medium">
+      <div className={`flex-1 flex flex-col border-r ${borderClass} min-w-[300px]`}>
+         <div className={`p-2 border-b ${borderClass} ${headerBgClass} text-sm font-medium`}>
              Source.adoc
          </div>
          <div className="flex-1 overflow-hidden relative">
@@ -39,7 +90,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
 
       {/* Right Pane: Preview / Visual Editor */}
       <div className="flex-1 flex flex-col min-w-[300px]">
-          <div className="p-2 border-b border-gray-700 bg-gray-800 text-sm font-medium flex justify-between items-center">
+          <div className={`p-2 border-b ${borderClass} ${headerBgClass} text-sm font-medium flex justify-between items-center`}>
               <span>Preview</span>
               <button 
                 onClick={onToggleSyncScroll}

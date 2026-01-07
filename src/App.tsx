@@ -27,6 +27,7 @@ Here is some text between tables.
 `;
 
 import { AsciiDocLinter } from './core/Linter';
+import { FileExplorer } from './components/Explorer/FileExplorer';
 
 // ... (previous imports)
 
@@ -48,6 +49,7 @@ function App() {
 
   // Sync Scroll State
   const [syncScroll, setSyncScroll] = useState(true);
+  const [theme, setTheme] = useState<'light'|'dark'>('dark');
   const previewRef = React.useRef<HTMLDivElement>(null);
 
   // Handle updates from Visual Editor (both Table and Text) via ID
@@ -112,10 +114,20 @@ function App() {
       return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  const handleFileUpload = (newContent: string, filename: string) => {
+      // TODO: Handle filename if we support multiple files later
+      setContent(newContent);
+  };
+
   return (
     <MainLayout
       isSyncScroll={syncScroll}
       onToggleSyncScroll={() => setSyncScroll(!syncScroll)}
+      theme={theme}
+      onThemeChange={setTheme}
+      explorer={
+          <FileExplorer onFileUpload={handleFileUpload} />
+      }
       editor={
         <SourceEditor 
           value={content} 
