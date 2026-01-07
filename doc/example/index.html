@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>Markdown 表格編輯器 (VS Code 預設版)</title>
+    <style>
+        /* --- CSS 變數定義 --- */
+        :root {
+            /* 預設為 VS Code Style 配色 */
+            --bg-color: #1e1e1e;
+            --text-color: #d4d4d4;
+            --panel-bg: #252526;
+            --border-color: #3c3c3c;
+            --toolbar-bg: #333333;
+            --primary-color: #007acc;
+            --selected-bg: #264f78;
+            --input-bg: #1e1e1e;
+            --danger: #f44747;
+            --btn-text: #ffffff;
+        }
+
+        /* 其他主題定義 */
+        body.theme-default {
+            --bg-color: #f8f9fa; --text-color: #24292e; --panel-bg: #ffffff;
+            --border-color: #d1d5da; --toolbar-bg: #f6f8fa; --primary-color: #2ea44f;
+            --selected-bg: #e7f3ff; --input-bg: #ffffff; --danger: #d73a49;
+        }
+        body.theme-dark {
+            --bg-color: #0d1117; --text-color: #c9d1d9; --panel-bg: #161b22;
+            --border-color: #30363d; --toolbar-bg: #161b22; --primary-color: #238636;
+            --selected-bg: #1f6feb; --input-bg: #0d1117; --danger: #da3633;
+        }
+        body.theme-vim {
+            --bg-color: #000000; --text-color: #00ff00; --panel-bg: #000000;
+            --border-color: #00ff00; --toolbar-bg: #1a1a1a; --primary-color: #00ff00;
+            --selected-bg: #004400; --input-bg: #000000; --danger: #ff0000;
+        }
+
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 20px; background-color: var(--bg-color); color: var(--text-color); transition: all 0.3s ease; }
+        
+        /* 主題切換器 */
+        .theme-selector { position: fixed; top: 20px; right: 20px; z-index: 1000; background: var(--panel-bg); padding: 8px; border: 1px solid var(--border-color); border-radius: 6px; }
+        .theme-selector select { background: var(--input-bg); color: var(--text-color); border: 1px solid var(--border-color); padding: 4px; border-radius: 4px; outline: none; }
+
+        h2 { text-align: center; margin-bottom: 20px; }
+
+        /* 轉換箭頭 */
+        .controls { text-align: center; margin-bottom: 20px; display: flex; justify-content: center; align-items: center; gap: 50px; }
+        .arrow-btn { background: none; border: none; color: var(--primary-color); cursor: pointer; display: flex; flex-direction: column; align-items: center; transition: 0.2s; }
+        .arrow-btn:hover { transform: scale(1.1); filter: brightness(1.2); }
+        .arrow-icon { font-size: 40px; line-height: 1; }
+        .arrow-label { font-size: 12px; font-weight: bold; margin-top: 5px; color: var(--text-color); opacity: 0.7; }
+
+        .container { display: flex; gap: 20px; height: 60vh; margin-bottom: 20px; }
+        .panel { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+        
+        /* 面板標題列 (包含 Undo 按鈕) */
+        .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
+        .panel-header h3 { font-size: 14px; margin: 0; opacity: 0.8; }
+        .mini-undo-group { display: flex; gap: 5px; }
+        .mini-undo-group button { background: var(--toolbar-bg); color: var(--text-color); border: 1px solid var(--border-color); border-radius: 3px; cursor: pointer; font-size: 12px; padding: 2px 6px; }
+        .mini-undo-group button:disabled { opacity: 0.3; cursor: not-allowed; }
+
+        textarea { flex: 1; padding: 12px; font-family: 'Consolas', 'Monaco', monospace; border: 1px solid var(--border-color); border-radius: 6px; resize: none; background: var(--input-bg); color: var(--text-color); line-height: 1.5; outline: none; }
+
+        /* 視覺化編輯器 */
+        #editorWrapper { flex: 1; display: flex; flex-direction: column; background: var(--panel-bg); border: 1px solid var(--border-color); border-radius: 6px; overflow: hidden; }
+        .toolbar { background: var(--toolbar-bg); border-bottom: 1px solid var(--border-color); padding: 8px; display: flex; gap: 4px; flex-wrap: wrap; }
+        .toolbar-group { display: flex; gap: 4px; align-items: center; padding: 0 8px; border-right: 1px solid var(--border-color); }
+        .toolbar button { background: var(--panel-bg); color: var(--text-color); border: 1px solid var(--border-color); min-width: 30px; height: 30px; border-radius: 4px; cursor: pointer; }
+        .toolbar button:hover:not(:disabled) { background: var(--selected-bg); }
+        .toolbar button:disabled { opacity: 0.3; }
+
+        #tableContainer { flex: 1; padding: 16px; overflow: auto; background: var(--panel-bg); }
+        table { border-collapse: collapse; width: 100%; font-size: 14px; }
+        th, td { border: 1px solid var(--border-color); padding: 10px; text-align: left; vertical-align: top; outline: none; }
+        th { background-color: var(--toolbar-bg); font-weight: 600; }
+        .selected-cell { background-color: var(--selected-bg) !important; box-shadow: inset 0 0 0 2px var(--primary-color); }
+
+        /* 暫存區 */
+        .scratchpad-area { border-top: 2px dashed var(--border-color); padding-top: 20px; margin-top: 20px; }
+        #scratchpad { width: 100%; height: 100px; }
+    </style>
+</head>
+<body class="theme-vscode"> <div class="theme-selector">
+        <label>主題：</label>
+        <select onchange="changeTheme(this.value)">
+            <option value="theme-vscode" selected>VS Code Style</option>
+            <option value="theme-default">預設亮色</option>
+            <option value="theme-dark">GitHub 深色</option>
+            <option value="theme-vim">Vim Style</option>
+        </select>
+    </div>
+
+    <h2>Markdown 表格編輯器</h2>
+
+    <div class="controls">
+        <button class="arrow-btn" onclick="safeMd2Form()" title="Markdown ➔ 表格">
+            <span class="arrow-icon">⟹</span>
+            <span class="arrow-label">編輯表格</span>
+        </button>
+        <button class="arrow-btn" onclick="form2md()" title="表格 ➔ Markdown">
+            <span class="arrow-icon">⟸</span>
+            <span class="arrow-label">輸出語法</span>
+        </button>
+    </div>
+
+    <div class="container">
+        <div class="panel">
+            <div class="panel-header">
+                <h3>Markdown 原始碼</h3>
+                <div class="mini-undo-group">
+                    <button id="mdUndoBtn" onclick="mdUndo()" title="復原原始碼">↶</button>
+                    <button id="mdRedoBtn" onclick="mdRedo()" title="重做原始碼">↷</button>
+                </div>
+            </div>
+            <textarea id="mdInput" oninput="debouncedMdSave()" placeholder="在此輸入 Markdown..."></textarea>
+        </div>
+
+        <div class="panel">
+            <div class="panel-header">
+                <h3>視覺化編輯區</h3>
+            </div>
+            <div id="editorWrapper">
+                <div class="toolbar">
+                    <div class="toolbar-group">
+                        <button id="undoBtn" onclick="undo()" title="復原">↶</button>
+                        <button id="redoBtn" onclick="redo()" title="重做">↷</button>
+                    </div>
+                    <div class="toolbar-group">
+                        <button onclick="safeExecCmd('bold')"><b>B</b></button>
+                        <button onclick="safeExecCmd('italic')"><i>I</i></button>
+                    </div>
+                    <div class="toolbar-group">
+                        <button onclick="safeAction(insertRow, 'up')" title="向上加行">➕⤒</button>
+                        <button onclick="safeAction(insertRow, 'down')" title="向下加行">➕⤓</button>
+                        <button onclick="safeAction(deleteCurrentRow)" class="danger-btn" style="color:var(--danger)">⤫ 行</button>
+                    </div>
+                    <div class="toolbar-group">
+                        <button onclick="safeAction(insertCol, 'left')" title="向左加列">➕⇥</button>
+                        <button onclick="safeAction(insertCol, 'right')" title="向右加列">➕⇤</button>
+                        <button onclick="safeAction(deleteCurrentCol)" class="danger-btn" style="color:var(--danger)">⤫ 列</button>
+                    </div>
+                </div>
+                <div id="tableContainer" onclick="handleTableClick(event)" oninput="debouncedSave()"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="scratchpad-area">
+        <h3>文本暫存區 (Scratchpad)</h3>
+        <textarea id="scratchpad" placeholder="在此暫時放置文字..."></textarea>
+    </div>
+
+    <script>
+        // --- 核心變數 ---
+        let currentCell = null;
+        let historyStack = []; // 視覺化編輯堆疊
+        let redoStack = [];
+        let mdHistoryStack = []; // Markdown 原始碼堆疊
+        let mdRedoStack = [];
+        let undoTimer = null;
+        let mdUndoTimer = null;
+
+        // --- 初始化 ---
+        window.onload = () => {
+            const defaultMd = `| 標題 1 | 標題 2 | 標題 3 |
+| --- | --- | --- |
+| 內容 A1 | 內容 B1 | 內容 C1 |
+| 內容 A2 | 內容 B2 | 內容 C2 |
+| 內容 A3 | 內容 B3 | 內容 C3 |`;
+            document.getElementById('mdInput').value = defaultMd;
+            md2form();
+            saveState(true);
+            saveMdState(true); // 儲存初始 Markdown 狀態
+        };
+
+        function changeTheme(themeName) { document.body.className = themeName; }
+
+        // --- Markdown 原始碼 Undo/Redo 邏輯 ---
+        function saveMdState(isInit = false) {
+            const content = document.getElementById('mdInput').value;
+            if (!isInit && mdHistoryStack.length > 0 && content === mdHistoryStack[mdHistoryStack.length - 1]) return;
+            mdHistoryStack.push(content);
+            if (!isInit) mdRedoStack = [];
+            if (mdHistoryStack.length > 40) mdHistoryStack.shift();
+            updateMdButtons();
+        }
+
+        function debouncedMdSave() {
+            clearTimeout(mdUndoTimer);
+            mdUndoTimer = setTimeout(() => saveMdState(), 500);
+        }
+
+        function mdUndo() {
+            if (mdHistoryStack.length <= 1) return;
+            mdRedoStack.push(mdHistoryStack.pop());
+            document.getElementById('mdInput').value = mdHistoryStack[mdHistoryStack.length - 1];
+            updateMdButtons();
+        }
+
+        function mdRedo() {
+            if (mdRedoStack.length === 0) return;
+            const state = mdRedoStack.pop();
+            mdHistoryStack.push(state);
+            document.getElementById('mdInput').value = state;
+            updateMdButtons();
+        }
+
+        function updateMdButtons() {
+            document.getElementById('mdUndoBtn').disabled = mdHistoryStack.length <= 1;
+            document.getElementById('mdRedoBtn').disabled = mdRedoStack.length === 0;
+        }
+
+        // --- 視覺化編輯器 Undo/Redo 邏輯 ---
+        function saveState(isInit = false) {
+            const content = document.getElementById('tableContainer').innerHTML;
+            if (!isInit && historyStack.length > 0 && content === historyStack[historyStack.length - 1]) return;
+            historyStack.push(content);
+            if (!isInit) redoStack = [];
+            if (historyStack.length > 40) historyStack.shift();
+            updateHistoryButtons();
+        }
+
+        function undo() {
+            if (historyStack.length <= 1) return;
+            redoStack.push(historyStack.pop());
+            document.getElementById('tableContainer').innerHTML = historyStack[historyStack.length - 1];
+            currentCell = null;
+            updateHistoryButtons();
+        }
+
+        function redo() {
+            if (redoStack.length === 0) return;
+            const state = redoStack.pop();
+            historyStack.push(state);
+            document.getElementById('tableContainer').innerHTML = state;
+            currentCell = null;
+            updateHistoryButtons();
+        }
+
+        function updateHistoryButtons() {
+            document.getElementById('undoBtn').disabled = historyStack.length <= 1;
+            document.getElementById('redoBtn').disabled = redoStack.length === 0;
+        }
+
+        function debouncedSave() {
+            clearTimeout(undoTimer);
+            undoTimer = setTimeout(() => saveState(), 500);
+        }
+
+        // --- 功能與安全性包裝 ---
+        function safeExecCmd(cmd) { saveState(); document.execCommand(cmd, false, null); saveState(); }
+        function safeAction(actionFunc, param) { saveState(); actionFunc(param); saveState(); }
+        function safeMd2Form() { saveState(); md2form(); currentCell = null; saveState(); }
+
+        function handleTableClick(e) {
+            const cell = e.target.closest('td, th');
+            if (cell) {
+                document.querySelectorAll('.selected-cell').forEach(c => c.classList.remove('selected-cell'));
+                currentCell = cell;
+                currentCell.classList.add('selected-cell');
+            }
+        }
+
+        // --- 表格操作實作 ---
+        function insertRow(dir) {
+            const table = document.getElementById("mainTable");
+            const idx = currentCell ? currentCell.parentElement.rowIndex : table.rows.length - 1;
+            const row = table.insertRow(dir === 'up' ? idx : idx + 1);
+            for (let i = 0; i < table.rows[0].cells.length; i++) row.insertCell().contentEditable = "true";
+        }
+
+        function deleteCurrentRow() {
+            const table = document.getElementById("mainTable");
+            if (currentCell && table.rows.length > 1) {
+                table.deleteRow(currentCell.parentElement.rowIndex);
+                currentCell = null;
+            }
+        }
+
+        function insertCol(dir) {
+            if (!currentCell) return;
+            const table = document.getElementById("mainTable");
+            const cellIdx = currentCell.cellIndex;
+            const insertIdx = dir === 'left' ? cellIdx : cellIdx + 1;
+            Array.from(table.rows).forEach((row, idx) => {
+                const cell = (idx === 0) ? document.createElement('th') : row.insertCell(insertIdx);
+                if (idx === 0) row.insertBefore(cell, row.cells[insertIdx]);
+                cell.contentEditable = "true";
+            });
+        }
+
+        function deleteCurrentCol() {
+            const table = document.getElementById("mainTable");
+            if (currentCell && table.rows[0].cells.length > 1) {
+                const idx = currentCell.cellIndex;
+                Array.from(table.rows).forEach(row => row.deleteCell(idx));
+                currentCell = null;
+            }
+        }
+
+        // --- 核心轉換邏輯 ---
+        function formatCellToHtml(text) {
+            let escaped = text.trim().replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+            return escaped.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>').replace(/\*(.*?)\*/g, '<i>$1</i>').replace(/&lt;br\s*\/?&gt;/gi, '<br>');
+        }
+
+        function md2form() {
+            const mdText = document.getElementById('mdInput').value.trim();
+            if (!mdText) return;
+            const lines = mdText.split('\n').filter(l => l.trim() !== "");
+            let html = '<table id="mainTable"><thead>';
+            let headerDone = false;
+            lines.forEach(line => {
+                if (line.match(/^\s*\|?\s*[:\-|\s]+\s*\|?\s*$/)) return;
+                const cells = line.trim().replace(/^\||\|$/g, '').split('|');
+                html += '<tr>';
+                cells.forEach(c => {
+                    const tag = headerDone ? 'td' : 'th';
+                    html += `<${tag} contenteditable="true">${formatCellToHtml(c)}</${tag}>`;
+                });
+                html += '</tr>';
+                if (!headerDone) { html += '</thead><tbody>'; headerDone = true; }
+            });
+            document.getElementById('tableContainer').innerHTML = html + '</tbody></table>';
+        }
+
+        function form2md() {
+            const table = document.getElementById('mainTable');
+            if (!table) return;
+            let res = "";
+            Array.from(table.rows).forEach((row, i) => {
+                const cells = Array.from(row.cells).map(c => {
+                    return c.innerHTML.replace(/<br.*?>/gi, '<br>')
+                        .replace(/<b>(.*?)<\/b>|<strong>(.*?)<\/strong>/gi, '**$1$2**')
+                        .replace(/<i>(.*?)<\/i>|<em>(.*?)<\/em>/gi, '*$1$2*')
+                        .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&')
+                        .replace(/&nbsp;|\u00a0/g, ' ').replace(/\|/g, '\\|').trim();
+                });
+                res += "| " + cells.join(" | ") + " |\n";
+                if (i === 0) res += "| " + cells.map(() => "---").join(" | ") + " |\n";
+            });
+            const finalMd = res.trim();
+            document.getElementById('mdInput').value = finalMd;
+            saveMdState(); // 轉換回 Markdown 時也紀錄一次狀態
+        }
+    </script>
+</body>
+</html>

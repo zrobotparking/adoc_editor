@@ -1,0 +1,33 @@
+/* Basic AsciiDoc / Markdown Table Styles */
+.asciidoc-preview table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1em 0;
+}
+
+.asciidoc-preview th, 
+.asciidoc-preview td {
+    border: 1px solid #d1d5da;
+    padding: 6px 13px;
+}
+
+.asciidoc-preview th {
+    font-weight: 600;
+    background-color: #f6f8fa;
+}
+
+.asciidoc-preview tr:nth-child(2n) {
+    background-color: #f8f8f8;
+}
+
+.asciidoc-preview h1 {
+    font-size: 2em;
+    border-bottom: 1px solid #eaecef;
+    padding-bottom: 0.3em;
+}
+
+.asciidoc-preview h2 {
+    font-size: 1.5em;
+    border-bottom: 1px solid #eaecef;
+    padding-bottom: 0.3em;
+}
