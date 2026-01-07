@@ -29,6 +29,7 @@ export class BasicPipeParser implements TableParser {
                     // 1. Flush any pending text block before this table
                     if (textContentLines.length > 0) {
                         blocks.push({
+                            id: uuid(),
                             type: 'text',
                             content: textContentLines.join('\n'),
                             startLine: textStartLine,
@@ -50,6 +51,7 @@ export class BasicPipeParser implements TableParser {
                     const table = this.parseTableContent(tableContentLines);
                     if (table) {
                         blocks.push({
+                            id: uuid(),
                             type: 'table',
                             table,
                             startLine: tableStartLine,
@@ -76,6 +78,7 @@ export class BasicPipeParser implements TableParser {
         // Flush any remaining text at the end of file
         if (textContentLines.length > 0) {
              blocks.push({
+                id: uuid(),
                 type: 'text',
                 content: textContentLines.join('\n'),
                 startLine: textStartLine,

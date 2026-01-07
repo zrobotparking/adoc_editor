@@ -20,6 +20,7 @@ export interface Table {
 }
 
 export interface TableBlock {
+    id: string;
     type: 'table';
     table: Table;
     startLine: number; // 0-indexed line number where |=== starts
@@ -27,6 +28,7 @@ export interface TableBlock {
 }
 
 export interface TextBlock {
+    id: string;
     type: 'text';
     content: string; // The raw text content
     startLine: number;
