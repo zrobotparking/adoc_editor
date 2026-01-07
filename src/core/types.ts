@@ -20,13 +20,23 @@ export interface Table {
 }
 
 export interface TableBlock {
+    type: 'table';
     table: Table;
     startLine: number; // 0-indexed line number where |=== starts
     endLine: number;   // 0-indexed line number where |=== ends
 }
 
+export interface TextBlock {
+    type: 'text';
+    content: string; // The raw text content
+    startLine: number;
+    endLine: number;
+}
+
+export type Block = TableBlock | TextBlock;
+
 export interface TableParser {
-  parse(input: string): TableBlock[];
+  parse(input: string): Block[];
 }
 
 export interface TableSerializer {

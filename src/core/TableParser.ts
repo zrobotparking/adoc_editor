@@ -1,4 +1,4 @@
-import { type Table, type Row, type Cell, type TableParser, type TableBlock } from './types';
+import { type Table, type Row, type Cell, type TableParser, type TableBlock, type Block } from './types';
 
 // Basic ID generator to avoid crypto dependency issues in some environments
 function uuid(): string {
@@ -6,40 +6,81 @@ function uuid(): string {
 }
 
 export class BasicPipeParser implements TableParser {
-    parse(input: string): TableBlock[] {
-        const lines = input.split('\n'); // Keep empty lines to track indices
-        const blocks: TableBlock[] = [];
+    parse(input: string): Block[] {
+        const lines = input.split('\n');
+        const blocks: Block[] = [];
         
         let inTable = false;
         let tableStartLine = -1;
         let tableContentLines: string[] = [];
+        
+        // Track text content state
+        let textStartLine = -1;
+        let textContentLines: string[] = [];
 
         for (let i = 0; i < lines.length; i++) {
-            const line = lines[i].trim();
+            const line = lines[i]; // Keep whitespace for text accuracy
+            const trimmedLine = line.trim();
             
-            if (/^\|={3,}$/.test(line)) {
+            if (/^\|={3,}$/.test(trimmedLine)) {
                 if (!inTable) {
-                    // Start of a table
+                    // --- Start of a table ---
+                    
+                    // 1. Flush any pending text block before this table
+                    if (textContentLines.length > 0) {
+                        blocks.push({
+                            type: 'text',
+                            content: textContentLines.join('\n'),
+                            startLine: textStartLine,
+                            endLine: i - 1
+                        });
+                        textContentLines = [];
+                        textStartLine = -1;
+                    }
+
+                    // 2. Start tracking table
                     inTable = true;
                     tableStartLine = i;
                     tableContentLines = [];
                 } else {
-                    // End of a table
+                    // --- End of a table ---
                     inTable = false;
                     const tableEndLine = i;
                     
                     const table = this.parseTableContent(tableContentLines);
                     if (table) {
                         blocks.push({
+                            type: 'table',
                             table,
                             startLine: tableStartLine,
                             endLine: tableEndLine
                         });
                     }
+                    
+                    // Reset text tracking for next block
+                    // Next text block starts at i + 1
+                    textStartLine = i + 1;
+                    textContentLines = [];
                 }
             } else if (inTable) {
                 tableContentLines.push(line);
+            } else {
+                // We are in a text block area
+                if (textStartLine === -1) {
+                    textStartLine = i;
+                }
+                textContentLines.push(line);
             }
+        }
+        
+        // Flush any remaining text at the end of file
+        if (textContentLines.length > 0) {
+             blocks.push({
+                type: 'text',
+                content: textContentLines.join('\n'),
+                startLine: textStartLine,
+                endLine: lines.length - 1
+            });
         }
         
         return blocks;
