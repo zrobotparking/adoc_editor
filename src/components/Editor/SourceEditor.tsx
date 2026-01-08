@@ -6,9 +6,10 @@ interface SourceEditorProps {
     onChange: (value: string) => void;
     lintErrors?: LintError[];
     onScroll?: (scrollTop: number, scrollRatio: number) => void;
+    onSelectionChange?: (selection: { startLine: number, endLine: number, text: string }) => void;
 }
 
-export const SourceEditor: React.FC<SourceEditorProps> = ({ value, onChange, lintErrors = [], onScroll }) => {
+export const SourceEditor: React.FC<SourceEditorProps> = ({ value, onChange, lintErrors = [], onScroll, onSelectionChange }) => {
     const textareaRef = React.useRef<HTMLTextAreaElement>(null);
     const gutterRef = React.useRef<HTMLDivElement>(null);
 
@@ -37,6 +38,23 @@ export const SourceEditor: React.FC<SourceEditorProps> = ({ value, onChange, lin
         });
         return map;
     }, [lintErrors]);
+
+    const handleSelect = () => {
+        if (textareaRef.current) {
+            const { selectionStart, selectionEnd, value } = textareaRef.current;
+            const beforeStart = value.substring(0, selectionStart);
+            const beforeEnd = value.substring(0, selectionEnd);
+            const selectedText = value.substring(selectionStart, selectionEnd);
+            
+            const startLine = beforeStart.split('\n').length - 1;
+            const endLine = beforeEnd.split('\n').length - 1;
+            
+            
+            if (onSelectionChange) {
+                onSelectionChange({ startLine, endLine, text: selectedText });
+            }
+        }
+    };
 
     return (
         <div className="flex flex-col h-full bg-editor-bg">
@@ -69,6 +87,9 @@ export const SourceEditor: React.FC<SourceEditorProps> = ({ value, onChange, lin
                     value={value}
                     onChange={(e) => onChange(e.target.value)}
                     onScroll={handleScroll}
+                    onSelect={handleSelect}
+                    onClick={handleSelect}
+                    onKeyUp={handleSelect}
                     spellCheck={false}
                     style={{ lineHeight: '21px' }} // Enforce line-height for alignment
                 />

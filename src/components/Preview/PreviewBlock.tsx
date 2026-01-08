@@ -7,9 +7,16 @@ import { BasicTableSerializer } from '../../core/TableSerializer';
 
 const asciidoctor = Asciidoctor();
 
+// Helper to escape regex special characters
+function escapeRegExp(string: string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 interface PreviewBlockProps {
     block: Block;
     isEditing: boolean;
+    isHighlighted?: boolean;
+    highlightText?: string;
     onEdit: () => void;
     onUpdate: (content: string | any) => void;
     onCancel: () => void;
@@ -18,6 +25,8 @@ interface PreviewBlockProps {
 export const PreviewBlock: React.FC<PreviewBlockProps> = ({ 
     block, 
     isEditing, 
+    isHighlighted,
+    highlightText,
     onEdit, 
     onUpdate,
     onCancel
@@ -26,18 +35,26 @@ export const PreviewBlock: React.FC<PreviewBlockProps> = ({
 
     useEffect(() => {
         if (!isEditing) {
-            // Render preview based on block type
+            let converted = '';
             if (block.type === 'text') {
-                const converted = asciidoctor.convert(block.content, { safe: 'safe', attributes: { 'showtitle': true } });
-                setHtml(converted as string);
+                converted = asciidoctor.convert(block.content, { safe: 'safe', attributes: { 'showtitle': true } }) as string;
             } else if (block.type === 'table') {
                 const serializer = new BasicTableSerializer();
                 const adoc = serializer.serialize(block.table);
-                const converted = asciidoctor.convert(adoc, { safe: 'safe' });
-                setHtml(converted as string);
+                converted = asciidoctor.convert(adoc, { safe: 'safe' }) as string;
             }
+
+            // Apply Text Highlight if Block is Highlighted and there is text selected
+            // Apply Text Highlight if Block is Highlighted and there is text selected
+            if (isHighlighted && highlightText && highlightText.trim().length > 0) {
+                const escaped = escapeRegExp(highlightText);
+                const regex = new RegExp(`(${escaped})`, 'gi');
+                converted = converted.replace(regex, '<span style="background-color: rgba(255, 255, 0, 0.4); color: inherit;">$1</span>');
+            }
+
+            setHtml(converted);
         }
-    }, [block, isEditing]);
+    }, [block, isEditing, isHighlighted, highlightText]);
 
     if (isEditing) {
         return (
@@ -54,7 +71,7 @@ export const PreviewBlock: React.FC<PreviewBlockProps> = ({
                             Cancel (ESC)
                         </button>
                         <button 
-                            onClick={onCancel} // "Done" effectively acts as exit since updates are real-time or handled by parent
+                            onClick={onCancel} 
                             className="px-3 py-1 text-xs bg-btn-primary text-btn-primary-text rounded hover:bg-opacity-90"
                         >
                             Done
@@ -81,7 +98,11 @@ export const PreviewBlock: React.FC<PreviewBlockProps> = ({
 
     return (
         <div 
-            className="preview-block hover:ring-2 ring-blue-200 rounded p-1 transition-all cursor-pointer relative group"
+            className={`preview-block rounded p-1 transition-all cursor-pointer relative group ${
+                isHighlighted 
+                    ? 'ring-1 ring-yellow-500/50' 
+                    : 'hover:ring-2 ring-blue-200'
+            }`}
             onClick={(e) => {
                 e.stopPropagation();
                 onEdit();
@@ -93,7 +114,7 @@ export const PreviewBlock: React.FC<PreviewBlockProps> = ({
             </div>
 
             <div 
-                className="prose max-w-none"
+                className={`prose max-w-none ${isHighlighted ? 'highlight-content' : ''}`}
                 dangerouslySetInnerHTML={{ __html: html }}
             />
         </div>

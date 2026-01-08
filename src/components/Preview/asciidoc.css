@@ -64,3 +64,9 @@
     padding: 0;
     color: inherit;
 }
+
+/* Selection Highlight */
+/* Selection Highlight - specific text is handled by inline styles in React */
+.highlight-content {
+    /* No global background for the block content */
+}

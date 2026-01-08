@@ -154,6 +154,20 @@ function App() {
       }
   };
 
+  // Highlight state
+  const [highlightedBlockIds, setHighlightedBlockIds] = useState<string[]>([]);
+  const [selectedText, setSelectedText] = useState<string>('');
+
+  const handleSelectionChange = useCallback((selection: { startLine: number, endLine: number, text: string }) => {
+      const { startLine, endLine, text } = selection;
+      const ids = blocks
+          .filter(b => b.startLine <= endLine && b.endLine >= startLine)
+          .map(b => b.id);
+      
+      setHighlightedBlockIds(ids);
+      setSelectedText(text);
+  }, [blocks]);
+
   return (
     <div className={theme === 'dark' ? 'dark' : ''}>
         <MainLayout
@@ -175,6 +189,7 @@ function App() {
           onChange={(newVal) => activeFile && updateFileContent(activeFile, newVal)} 
           lintErrors={lintErrors}
           onScroll={handleEditorScroll}
+          onSelectionChange={handleSelectionChange}
         />
       }
       preview={
@@ -185,6 +200,8 @@ function App() {
             onUpdateBlock={handleBlockUpdate}
             onCancelEdit={handleCancelEdit}
             activeBlockId={activeBlockId}
+            highlightedBlockIds={highlightedBlockIds}
+            highlightText={selectedText}
         />
       }
     />

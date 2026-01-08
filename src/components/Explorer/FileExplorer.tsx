@@ -46,10 +46,14 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({ files, activeFile, o
     const hasFiles = Object.keys(files).length > 0;
     const sortedFiles = Object.keys(files).sort();
 
+    React.useEffect(() => {
+        console.log('[FileExplorer] Mounted/Updated');
+    }, []);
+
     return (
         <div className="flex flex-col h-full text-sm">
             {/* Header / Actions */}
-            <div className="p-2 border-b border-explorer-border flex space-x-2">
+            <div className="flex items-center justify-between bg-app-base border-b border-explorer-border px-3 py-2">
                  {/* Hidden Inputs */}
                  <input 
                     type="file" 
@@ -70,33 +74,30 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({ files, activeFile, o
                     onChange={handleFileChange}
                 />
                 
-                {!hasFiles && (
-                    <div className="flex flex-col space-y-2 w-full p-4 items-center">
-                        <button 
-                            onClick={() => folderInputRef.current?.click()}
-                            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded w-full transition-colors font-medium text-xs"
-                        >
-                            Open Folder
-                        </button>
-                         <div className="text-xs text-gray-500 text-center">- OR -</div>
-                        <button 
-                            onClick={() => fileInputRef.current?.click()}
-                            className="px-4 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 rounded w-full transition-colors text-xs"
-                        >
-                            Open File(s)
-                        </button>
-                    </div>
-                )}
-                
-                {hasFiles && (
-                     <button 
+                <span className="text-xs font-bold text-gray-500 dark:text-gray-400 tracking-wider">EXPLORER</span>
+
+                <div className="flex items-center space-x-2">
+                    <button 
+                        onClick={() => fileInputRef.current?.click()}
+                        className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-600 dark:text-gray-400 transition-colors"
+                        title="Add File(s)"
+                    >
+                        {/* New File Icon */}
+                        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                           <path d="M9 1H4C3 1 2 2 2 3V14C2 15 3 16 4 16H13C14 16 15 15 15 14V6L9 1ZM10 13H12V11H14V9H12V7H10V9H8V11H10V13Z" fillRule="evenodd"/>
+                        </svg>
+                    </button>
+                    <button 
                         onClick={() => folderInputRef.current?.click()}
-                        className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-600 dark:text-gray-400"
+                        className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-600 dark:text-gray-400 transition-colors"
                         title="Open Project Folder"
                     >
-                        📂
+                         {/* Folder Icon */}
+                        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                             <path d="M7.5 2L9.5 4H14C14.6 4 15 4.4 15 5V13C15 13.6 14.6 14 14 14H2C1.4 14 1 13.6 1 13V3C1 2.4 1.4 2 2 2H7.5Z"/>
+                        </svg>
                     </button>
-                )}
+                </div>
             </div>
 
             {/* File List */}

@@ -21,7 +21,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
   theme = 'dark',
   onThemeChange
 }) => {
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   // Theme Classes - Using Semantic Variables
@@ -44,7 +44,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
              &lt;
           </button>
         </div>
-        <div className="flex-1 overflow-auto p-2 whitespace-nowrap">
+        <div className="flex-1 overflow-auto whitespace-nowrap">
           {!isSidebarCollapsed && (explorer || <div className="opacity-50 text-sm p-2">No Folder Opened</div>)}
         </div>
       </div>
