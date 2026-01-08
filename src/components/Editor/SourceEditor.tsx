@@ -12,12 +12,21 @@ interface SourceEditorProps {
     lintErrors?: LintError[];
     onScroll?: (scrollTop: number, scrollRatio: number) => void;
     onSelectionChange?: (selection: { startLine: number, endLine: number, text: string }) => void;
+    highlightedRanges?: { startLine: number, endLine: number }[];
 }
 
-export const SourceEditor = forwardRef<SourceEditorHandle, SourceEditorProps>(({ value, onChange, lintErrors = [], onScroll, onSelectionChange }, ref) => {
+export const SourceEditor = forwardRef<SourceEditorHandle, SourceEditorProps>(({ 
+    value, 
+    onChange, 
+    lintErrors = [], 
+    onScroll, 
+    onSelectionChange,
+    highlightedRanges = []
+}, ref) => {
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const overlayRef = useRef<HTMLPreElement>(null);
     const gutterRef = useRef<HTMLDivElement>(null);
+    const highlightLayerRef = useRef<HTMLDivElement>(null);
 
     useImperativeHandle(ref, () => ({
         scrollTo: (ratio: number) => {
@@ -25,16 +34,13 @@ export const SourceEditor = forwardRef<SourceEditorHandle, SourceEditorProps>(({
                 const { scrollHeight, clientHeight } = textareaRef.current;
                 const targetScroll = ratio * (scrollHeight - clientHeight);
                 textareaRef.current.scrollTop = targetScroll;
-                // handleScroll will be triggered by event if we rely on onScroll, 
-                // but programmatic scroll doesn't always trigger onScroll depending on browser/react.
-                // However, we handle syncing in handleScroll, so we probably WANT it to trigger.
-                // Or we manually sync gutter/overlay here to be smooth.
+                
                 if (gutterRef.current) gutterRef.current.scrollTop = targetScroll;
                 if (overlayRef.current) overlayRef.current.scrollTop = targetScroll;
+                if (highlightLayerRef.current) highlightLayerRef.current.scrollTop = targetScroll;
             }
         }
     }));
-
 
     // Tokenizer
     const tokens = useMemo(() => {
@@ -59,6 +65,12 @@ export const SourceEditor = forwardRef<SourceEditorHandle, SourceEditorProps>(({
                 overlayRef.current.scrollTop = scrollTop;
                 overlayRef.current.scrollLeft = scrollLeft;
             }
+
+            // Sync Highlight Layer
+            if (highlightLayerRef.current) {
+                highlightLayerRef.current.scrollTop = scrollTop;
+                highlightLayerRef.current.scrollLeft = scrollLeft;
+            }
             
             // Notify parent for preview sync
             if (onScroll) {
@@ -68,6 +80,7 @@ export const SourceEditor = forwardRef<SourceEditorHandle, SourceEditorProps>(({
         }
     };
 
+    // ... (rest of logic: lines, errorMap, handleSelect, renderOverlay)
     const lines = value.split('\n');
     const errorMap = useMemo(() => {
         const map = new Map<number, LintError[]>();
@@ -85,7 +98,6 @@ export const SourceEditor = forwardRef<SourceEditorHandle, SourceEditorProps>(({
             const beforeEnd = value.substring(0, selectionEnd);
             const selectedText = value.substring(selectionStart, selectionEnd);
             
-            // Fix: remove duplicate endLine calculation if present in previous version
             const startLine = beforeStart.split('\n').length - 1;
             const endLine = beforeEnd.split('\n').length - 1;
            
@@ -97,21 +109,20 @@ export const SourceEditor = forwardRef<SourceEditorHandle, SourceEditorProps>(({
 
     // Construct Overlay HTML
     const renderOverlay = () => {
+        // ... (function body same as before, no changes needed inside)
         let lastIndex = 0;
         const elements: React.ReactNode[] = [];
 
         tokens.forEach((token, idx) => {
-             // Fill gaps with plain text (though Tokenizer usually covers all, safe fallback)
              if (token.start > lastIndex) {
                  elements.push(<span key={`gap-${idx}`} style={{color: 'var(--text-editor)'}}>{value.substring(lastIndex, token.start)}</span>);
              }
 
              const colorVar = `var(--syntax-${token.type})`;
-             // Styling based on token type
              let style: React.CSSProperties = { color: colorVar };
              if (token.type === 'bold' || token.type === 'header') style.fontWeight = 'bold';
              if (token.type === 'italic') style.fontStyle = 'italic';
-             if (token.type === 'header') style.textDecoration = 'none'; // Optional
+             if (token.type === 'header') style.textDecoration = 'none';
 
              elements.push(
                  <span key={idx} style={style}>
@@ -122,13 +133,10 @@ export const SourceEditor = forwardRef<SourceEditorHandle, SourceEditorProps>(({
              lastIndex = token.end;
         });
         
-        // Trailing text
         if (lastIndex < value.length) {
              elements.push(<span key="tail" style={{color: 'var(--text-editor)'}}>{value.substring(lastIndex)}</span>);
         }
 
-        // IMPORTANT: Add a newline character at the end if the value ends with \n, 
-        // to ensure the pre tag heights matches the textarea
         if (value.endsWith('\n')) {
             elements.push(<br key="br-end" />);
         }
@@ -136,15 +144,20 @@ export const SourceEditor = forwardRef<SourceEditorHandle, SourceEditorProps>(({
         return elements;
     };
 
+    // Calculate total height for the highlight layer to ensure it scrolls correctly
+    // 21px per line + 32px padding (16px top + 16px bottom)
+    // Adding extra buffer to be safe
+    const contentHeight = Math.max((lines.length * 21) + 32, 100); 
+
     return (
         <div className="flex flex-col h-full bg-editor-bg">
-             {/* Main Editor Area */}
+             {/* ... */}
              <div className="flex flex-grow relative overflow-hidden">
                 {/* Gutter */}
                 <div 
                     ref={gutterRef}
                     className="w-12 bg-editor-gutter text-editor-gutter-text text-right font-mono text-sm leading-relaxed p-4 pr-2 select-none overflow-hidden border-r border-explorer-border"
-                    style={{ lineHeight: '21px', paddingTop: '16px' }} // Explicit metrics
+                    style={{ lineHeight: '21px', paddingTop: '16px' }}
                 >
                     {lines.map((_, i) => {
                         const hasError = errorMap.has(i);
@@ -163,11 +176,39 @@ export const SourceEditor = forwardRef<SourceEditorHandle, SourceEditorProps>(({
 
                 {/* Editor Container - Stacked */}
                 <div className="flex-grow relative font-mono text-sm leading-relaxed" style={{ fontSize: '14px', lineHeight: '21px' }}>
+                    
+                    {/* Block Highlight Layer */}
+                    <div
+                        ref={highlightLayerRef}
+                        className="absolute inset-0 overflow-hidden pointer-events-none"
+                    >
+                         <div className="relative w-full" style={{ height: `${contentHeight}px` }}>
+                            {highlightedRanges.map((range, idx) => {
+                                const top = range.startLine * 21 + 16;
+                                const height = (range.endLine - range.startLine + 1) * 21;
+                                return (
+                                    <div 
+                                        key={idx}
+                                        className="absolute w-full border-r-2 border-l-2 border-t-2 border-b-2 border-blue-400 opacity-30 bg-blue-100 rounded"
+                                        style={{ 
+                                            top: `${top}px`, 
+                                            left: '4px',
+                                            right: '4px',
+                                            width: 'calc(100% - 8px)',
+                                            height: `${height}px`,
+                                            backgroundColor: 'rgba(59, 130, 246, 0.1)' 
+                                        }}
+                                    />
+                                );
+                            })}
+                         </div>
+                    </div>
+
                     {/* Syntax Overlay */}
                     <pre
                         ref={overlayRef}
                         aria-hidden="true"
-                        className="absolute inset-0 p-4 m-0 overflow-hidden whitespace-pre pointer-events-none bg-editor-bg"
+                        className="absolute inset-0 p-4 m-0 overflow-hidden whitespace-pre pointer-events-none bg-transparent"
                         style={{ 
                             fontFamily: 'monospace',
                             boxSizing: 'border-box'
@@ -182,7 +223,7 @@ export const SourceEditor = forwardRef<SourceEditorHandle, SourceEditorProps>(({
                         className="absolute inset-0 w-full h-full p-4 m-0 resize-none outline-none whitespace-pre bg-transparent text-transparent caret-editor-text"
                         style={{ 
                             fontFamily: 'monospace',
-                            caretColor: 'var(--text-secondary)', // Use visible color for caret
+                            caretColor: 'var(--text-secondary)',
                             zIndex: 1,
                             boxSizing: 'border-box'
                         }}

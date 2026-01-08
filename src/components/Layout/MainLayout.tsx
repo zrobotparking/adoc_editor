@@ -15,6 +15,12 @@ interface MainLayoutProps {
   // Theme props
   theme?: 'light' | 'dark';
   onThemeChange?: (theme: 'light' | 'dark') => void;
+
+  // Settings
+  showBlockHighlight?: boolean;
+  onToggleBlockHighlight?: () => void;
+  autoReveal?: boolean;
+  onToggleAutoReveal?: () => void;
 }
 
 export const MainLayout: React.FC<MainLayoutProps> = ({ 
@@ -26,7 +32,11 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
   isSyncPreviewToSource = true,
   onToggleSyncPreviewToSource,
   theme = 'dark',
-  onThemeChange
+  onThemeChange,
+  showBlockHighlight = true,
+  onToggleBlockHighlight,
+  autoReveal = true,
+  onToggleAutoReveal
 }) => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -81,6 +91,10 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
                 onClose={() => setIsSettingsOpen(false)}
                 theme={theme}
                 onThemeChange={onThemeChange || (() => {})}
+                showBlockHighlight={showBlockHighlight}
+                onToggleBlockHighlight={onToggleBlockHighlight || (() => {})}
+                autoReveal={autoReveal}
+                onToggleAutoReveal={onToggleAutoReveal || (() => {})}
               />
           </div>
       )}

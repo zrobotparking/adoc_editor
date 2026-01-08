@@ -98,6 +98,7 @@ export const PreviewBlock: React.FC<PreviewBlockProps> = ({
 
     return (
         <div 
+            data-block-id={block.id}
             className={`preview-block rounded p-1 transition-all cursor-pointer relative group ${
                 isHighlighted 
                     ? 'ring-1 ring-yellow-500/50' 

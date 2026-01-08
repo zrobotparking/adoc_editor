@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { MainLayout } from './components/Layout/MainLayout';
 import { SourceEditor, type SourceEditorHandle } from './components/Editor/SourceEditor';
-import { DocPreview } from './components/Preview/DocPreview';
+import { DocPreview, type DocPreviewHandle } from './components/Preview/DocPreview';
 import { BasicPipeParser } from './core/TableParser';
 import { BasicTableSerializer } from './core/TableSerializer';
 
@@ -64,9 +64,11 @@ function App() {
   // Sync Scroll State - Independent
   const [syncSourceToPreview, setSyncSourceToPreview] = useState(true);
   const [syncPreviewToSource, setSyncPreviewToSource] = useState(true);
+  const [showBlockHighlight, setShowBlockHighlight] = useState(true);
+  const [autoReveal, setAutoReveal] = useState(true);
   
   const [theme, setTheme] = useState<'light'|'dark'>('dark');
-  const previewRef = React.useRef<HTMLDivElement>(null);
+  const previewRef = React.useRef<DocPreviewHandle>(null);
   const sourceEditorRef = React.useRef<SourceEditorHandle>(null);
   
   // Mutex for loop prevention
@@ -124,12 +126,9 @@ function App() {
   // Source -> Preview
   const handleEditorScroll = useCallback((scrollTop: number, ratio: number) => {
       if (syncSourceToPreview && previewRef.current) {
-          const previewEl = previewRef.current;
-          
           if (!isScrollingRef.current) {
                isScrollingRef.current = true;
-               const targetScroll = ratio * (previewEl.scrollHeight - previewEl.clientHeight);
-               previewEl.scrollTop = targetScroll;
+               previewRef.current.scrollToRatio(ratio);
                
                // Debounce/Timeout reset
                setTimeout(() => { isScrollingRef.current = false; }, 50);
@@ -141,9 +140,9 @@ function App() {
   const handlePreviewScroll = useCallback((scrollTop: number, ratio: number) => {
       if (syncPreviewToSource && sourceEditorRef.current) {
           if (!isScrollingRef.current) {
-              isScrollingRef.current = true;
-              sourceEditorRef.current.scrollTo(ratio);
-              setTimeout(() => { isScrollingRef.current = false; }, 50);
+               isScrollingRef.current = true;
+               sourceEditorRef.current.scrollTo(ratio);
+               setTimeout(() => { isScrollingRef.current = false; }, 50);
           }
       }
   }, [syncPreviewToSource]);
@@ -188,7 +187,26 @@ function App() {
       
       setHighlightedBlockIds(ids);
       setSelectedText(text);
-  }, [blocks]);
+
+      // Auto-reveal block in preview
+      if (ids.length > 0 && previewRef.current && autoReveal) {
+           if (!isScrollingRef.current) {
+                isScrollingRef.current = true;
+                previewRef.current.scrollToBlock(ids[0]);
+                // Give it sufficient time for smooth scroll to complete (prevent feedback loop)
+                setTimeout(() => { isScrollingRef.current = false; }, 1200);
+           }
+      }
+  }, [blocks, autoReveal]);
+
+  // Derive ranges for Source Editor highlighting
+  const activeRanges = useMemo(() => {
+      if (!showBlockHighlight) return [];
+      
+      return blocks
+          .filter(b => highlightedBlockIds.includes(b.id))
+          .map(b => ({ startLine: b.startLine, endLine: b.endLine }));
+  }, [blocks, highlightedBlockIds, showBlockHighlight]);
 
   return (
     <div className={theme === 'dark' ? 'dark' : ''}>
@@ -199,6 +217,10 @@ function App() {
             onToggleSyncPreviewToSource={() => setSyncPreviewToSource(!syncPreviewToSource)}
             theme={theme}
             onThemeChange={setTheme}
+            showBlockHighlight={showBlockHighlight}
+            onToggleBlockHighlight={() => setShowBlockHighlight(!showBlockHighlight)}
+            autoReveal={autoReveal}
+            onToggleAutoReveal={() => setAutoReveal(!autoReveal)}
             explorer={
                 <FileExplorer 
                     files={files}
@@ -215,6 +237,7 @@ function App() {
           lintErrors={lintErrors}
           onScroll={handleEditorScroll}
           onSelectionChange={handleSelectionChange}
+          highlightedRanges={activeRanges}
         />
       }
       preview={

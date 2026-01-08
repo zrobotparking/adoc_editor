@@ -1,7 +1,12 @@
-import React, { forwardRef } from 'react';
+import React, { forwardRef, useImperativeHandle, useRef } from 'react';
 import { type Block } from '../../core/types';
 import { PreviewBlock } from './PreviewBlock';
 import './asciidoc.css';
+
+export interface DocPreviewHandle {
+    scrollToBlock: (id: string) => void;
+    scrollToRatio: (ratio: number) => void;
+}
 
 interface DocPreviewProps {
     blocks: Block[];
@@ -14,7 +19,7 @@ interface DocPreviewProps {
     onScroll?: (scrollTop: number, ratio: number) => void;
 }
 
-export const DocPreview = forwardRef<HTMLDivElement, DocPreviewProps>(({ 
+export const DocPreview = forwardRef<DocPreviewHandle, DocPreviewProps>(({ 
     blocks, 
     onEditBlock, 
     onUpdateBlock,
@@ -24,6 +29,25 @@ export const DocPreview = forwardRef<HTMLDivElement, DocPreviewProps>(({
     highlightText,
     onScroll
 }, ref) => {
+    const containerRef = useRef<HTMLDivElement>(null);
+
+    useImperativeHandle(ref, () => ({
+        scrollToBlock: (id: string) => {
+            if (containerRef.current) {
+                const el = containerRef.current.querySelector(`[data-block-id="${id}"]`);
+                if (el) {
+                    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            }
+        },
+        scrollToRatio: (ratio: number) => {
+             if (containerRef.current) {
+                const { scrollHeight, clientHeight } = containerRef.current;
+                containerRef.current.scrollTop = ratio * (scrollHeight - clientHeight);
+            }
+        }
+    }));
+
     const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
         if (!onScroll) return;
         const target = e.currentTarget;
@@ -34,7 +58,7 @@ export const DocPreview = forwardRef<HTMLDivElement, DocPreviewProps>(({
 
     return (
         <div 
-            ref={ref} 
+            ref={containerRef} 
             onScroll={handleScroll}
             className="asciidoc-preview p-4 bg-preview-bg text-preview-text h-full overflow-auto font-sans leading-relaxed"
         >

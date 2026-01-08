@@ -5,13 +5,21 @@ interface SettingsPanelProps {
     onClose: () => void;
     theme: 'light' | 'dark';
     onThemeChange: (theme: 'light' | 'dark') => void;
+    showBlockHighlight: boolean;
+    onToggleBlockHighlight: () => void;
+    autoReveal: boolean;
+    onToggleAutoReveal: () => void;
 }
 
 export const SettingsPanel: React.FC<SettingsPanelProps> = ({ 
     isOpen, 
     onClose, 
     theme, 
-    onThemeChange 
+    onThemeChange,
+    showBlockHighlight,
+    onToggleBlockHighlight,
+    autoReveal,
+    onToggleAutoReveal
 }) => {
     if (!isOpen) return null;
 
@@ -35,6 +43,28 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                         Light
                     </button>
                 </div>
+            </div>
+
+            <div className="mb-4 space-y-2">
+                <label className="flex items-center space-x-2 text-sm font-medium text-text-primary cursor-pointer">
+                    <input 
+                        type="checkbox" 
+                        checked={showBlockHighlight}
+                        onChange={onToggleBlockHighlight}
+                        className="form-checkbox h-4 w-4 text-blue-600 rounded bg-app-base border-gray-500"
+                    />
+                    <span>Highlight Active Block</span>
+                </label>
+                
+                <label className="flex items-center space-x-2 text-sm font-medium text-text-primary cursor-pointer">
+                    <input 
+                        type="checkbox" 
+                        checked={autoReveal}
+                        onChange={onToggleAutoReveal}
+                        className="form-checkbox h-4 w-4 text-blue-600 rounded bg-app-base border-gray-500"
+                    />
+                    <span>Auto Reveal Preview</span>
+                </label>
             </div>
 
             <button 
