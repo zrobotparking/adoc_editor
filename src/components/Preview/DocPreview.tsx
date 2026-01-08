@@ -17,6 +17,7 @@ interface DocPreviewProps {
     highlightedBlockIds?: string[];
     highlightText?: string;
     onScroll?: (scrollTop: number, ratio: number) => void;
+    files?: Record<string, string>;
 }
 
 export const DocPreview = forwardRef<DocPreviewHandle, DocPreviewProps>(({ 
@@ -27,7 +28,8 @@ export const DocPreview = forwardRef<DocPreviewHandle, DocPreviewProps>(({
     activeBlockId,
     highlightedBlockIds = [],
     highlightText,
-    onScroll
+    onScroll,
+    files
 }, ref) => {
     const containerRef = useRef<HTMLDivElement>(null);
 
@@ -69,6 +71,7 @@ export const DocPreview = forwardRef<DocPreviewHandle, DocPreviewProps>(({
                     isEditing={block.id === activeBlockId} 
                     isHighlighted={highlightedBlockIds.includes(block.id)}
                     highlightText={highlightText}
+                    files={files}
                     onEdit={() => onEditBlock(block.id, block.type)}
                     onUpdate={(content) => onUpdateBlock(block.id, content)}
                     onCancel={onCancelEdit}

@@ -244,6 +244,7 @@ function App() {
         <DocPreview 
             ref={previewRef}
             blocks={blocks}
+            blocks={blocks}
             onEditBlock={handleEditBlock}
             onUpdateBlock={handleBlockUpdate}
             onCancelEdit={handleCancelEdit}
@@ -251,6 +252,7 @@ function App() {
             highlightedBlockIds={highlightedBlockIds}
             highlightText={selectedText}
             onScroll={handlePreviewScroll}
+            files={files}
         />
       }
     />

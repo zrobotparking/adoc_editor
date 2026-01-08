@@ -20,6 +20,7 @@ interface PreviewBlockProps {
     onEdit: () => void;
     onUpdate: (content: string | any) => void;
     onCancel: () => void;
+    files?: Record<string, string>;
 }
 
 export const PreviewBlock: React.FC<PreviewBlockProps> = ({ 
@@ -29,19 +30,63 @@ export const PreviewBlock: React.FC<PreviewBlockProps> = ({
     highlightText,
     onEdit, 
     onUpdate,
-    onCancel
+    onCancel,
+    files = {}
 }) => {
     const [html, setHtml] = useState('');
 
     useEffect(() => {
         if (!isEditing) {
             let converted = '';
+            
+            // Create a custom registry for this conversion
+            const registry = asciidoctor.Extensions.create();
+            
+            // Register Include Processor
+            registry.includeProcessor(function() {
+                const self = this;
+                self.handles((target: string) => true);
+                self.process((doc: any, reader: any, target: string, attrs: any) => {
+                    // 1. Try exact match
+                    if (files && files[target]) {
+                        reader.pushInclude(files[target], target, target, 1, attrs);
+                        return;
+                    }
+
+                    // 2. Try fuzzy match (suffix match)
+                    // This handles cases where file is "folder/doc.adoc" but include is "doc.adoc" (if at root)
+                    // or relative paths if we assume flattened or unique filenames.
+                    if (files) {
+                        const keys = Object.keys(files);
+                        // Search for key ending with "/target" or exactly "target"
+                        // We iterate to find a potential match.
+                        const match = keys.find(k => k === target || k.endsWith('/' + target) || k.endsWith('\\' + target));
+                        
+                        if (match) {
+                            console.log(`[Include] Resolved '${target}' to '${match}'`);
+                            reader.pushInclude(files[match], match, match, 1, attrs);
+                            return;
+                        }
+                    }
+
+                    // 3. Not Found
+                    console.warn(`[Include] File not found: ${target}. Available:`, Object.keys(files || {}));
+                    reader.pushInclude(`Unresolved directive in <stdin> - include::${target}[]`, target, target, 1, attrs);
+                });
+            });
+
+            const options = { 
+                safe: 'safe', 
+                attributes: { 'showtitle': true },
+                extension_registry: registry 
+            };
+
             if (block.type === 'text') {
-                converted = asciidoctor.convert(block.content, { safe: 'safe', attributes: { 'showtitle': true } }) as string;
+                converted = asciidoctor.convert(block.content, options) as string;
             } else if (block.type === 'table') {
                 const serializer = new BasicTableSerializer();
                 const adoc = serializer.serialize(block.table);
-                converted = asciidoctor.convert(adoc, { safe: 'safe' }) as string;
+                converted = asciidoctor.convert(adoc, options) as string;
             }
 
             // Apply Text Highlight if Block is Highlighted and there is text selected
