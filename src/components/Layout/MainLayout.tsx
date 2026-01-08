@@ -24,11 +24,11 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
-  // Theme Classes
-  const bgClass = theme === 'dark' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-black';
-  const borderClass = theme === 'dark' ? 'border-gray-700' : 'border-gray-300';
-  const headerBgClass = theme === 'dark' ? 'bg-gray-800' : 'bg-gray-200';
-  const sidebarBgClass = theme === 'dark' ? 'bg-gray-800' : 'bg-gray-200';
+  // Theme Classes - Using Semantic Variables
+  const bgClass = 'bg-app-base text-text-primary';
+  const borderClass = 'border-explorer-border'; // Using sidebar border generally for layout lines
+  const headerBgClass = 'bg-app-header';
+  const sidebarBgClass = 'bg-app-sidebar';
 
   return (
     <div className={`flex h-screen w-screen overflow-hidden ${bgClass}`}>
@@ -36,7 +36,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
       <div 
         className={`${
           isSidebarCollapsed ? 'w-0' : 'w-64'
-        } border-r ${borderClass} flex flex-col transition-all duration-300 relative`}
+        } border-r ${borderClass} ${sidebarBgClass} flex flex-col transition-all duration-300 relative`}
       >
         <div className={`p-3 border-b ${borderClass} font-bold ${headerBgClass} flex justify-between items-center whitespace-nowrap overflow-hidden`}>
           <span>Explorer</span>
@@ -104,7 +104,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
                 Sync Scroll: {isSyncScroll ? 'ON' : 'OFF'}
               </button>
           </div>
-          <div className="flex-1 overflow-auto bg-white text-black p-4 relative" id="preview-container">
+          <div className="flex-1 overflow-auto bg-preview-bg text-preview-text p-4 relative" id="preview-container">
               {/* Ensure relative positioning for absolute children if any. 
                   Note: We might need to attach ref here if we want to scroll THIS container 
                   Or is DocPreview the container? DocPreview renders a div with overflow.

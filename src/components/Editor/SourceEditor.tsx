@@ -39,13 +39,13 @@ export const SourceEditor: React.FC<SourceEditorProps> = ({ value, onChange, lin
     }, [lintErrors]);
 
     return (
-        <div className="flex flex-col h-full bg-[#1e1e1e]">
+        <div className="flex flex-col h-full bg-editor-bg">
              {/* Main Editor Area */}
              <div className="flex flex-grow relative overflow-hidden">
                 {/* Gutter */}
                 <div 
                     ref={gutterRef}
-                    className="w-12 bg-[#151515] text-[#6e7681] text-right font-mono text-sm leading-relaxed p-4 pr-2 select-none overflow-hidden border-r border-[#30363d]"
+                    className="w-12 bg-editor-gutter text-editor-gutter-text text-right font-mono text-sm leading-relaxed p-4 pr-2 select-none overflow-hidden border-r border-explorer-border"
                 >
                     {lines.map((_, i) => {
                         const hasError = errorMap.has(i);
@@ -65,7 +65,7 @@ export const SourceEditor: React.FC<SourceEditorProps> = ({ value, onChange, lin
                 {/* Textarea */}
                 <textarea
                     ref={textareaRef}
-                    className="flex-grow bg-[#1e1e1e] text-[#d4d4d4] font-mono p-4 pl-2 resize-none focus:outline-none text-sm leading-relaxed whitespace-pre"
+                    className="flex-grow bg-editor-bg text-editor-text font-mono p-4 pl-2 resize-none focus:outline-none text-sm leading-relaxed whitespace-pre"
                     value={value}
                     onChange={(e) => onChange(e.target.value)}
                     onScroll={handleScroll}

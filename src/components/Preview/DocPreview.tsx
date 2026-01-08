@@ -19,7 +19,7 @@ export const DocPreview = forwardRef<HTMLDivElement, DocPreviewProps>(({
     activeBlockId
 }, ref) => {
     return (
-        <div ref={ref} className="asciidoc-preview prose max-w-none p-4 bg-white text-black h-full overflow-auto">
+        <div ref={ref} className="asciidoc-preview p-4 bg-preview-bg text-preview-text h-full overflow-auto font-sans leading-relaxed">
             {blocks.map((block) => (
                 <PreviewBlock 
                     key={block.id} 

@@ -1,8 +1,6 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { MainLayout } from './components/Layout/MainLayout';
 import { SourceEditor } from './components/Editor/SourceEditor';
-import { VisualTableEditor } from './components/Editor/VisualTableEditor';
-import { VisualTextEditor } from './components/Editor/VisualTextEditor';
 import { DocPreview } from './components/Preview/DocPreview';
 import { BasicPipeParser } from './core/TableParser';
 import { BasicTableSerializer } from './core/TableSerializer';
@@ -28,23 +26,41 @@ Here is some text between tables.
 
 import { AsciiDocLinter } from './core/Linter';
 import { FileExplorer } from './components/Explorer/FileExplorer';
+import { applyTheme } from './core/theme/themeConfig';
 
 // ... (previous imports)
 
 function App() {
-  const [content, setContent] = useState(INITIAL_CONTENT);
+  // Multi-File State
+  const [files, setFiles] = useState<Record<string, string>>({
+      'example.adoc': INITIAL_CONTENT
+  });
+  const [activeFile, setActiveFile] = useState<string | null>('example.adoc');
   const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
 
-  // Parse all blocks
+  // Derived current content (fallback to empty if no file)
+  const content = activeFile ? (files[activeFile] || '') : '';
+
+  // Update a specific file's content
+  const updateFileContent = useCallback((path: string, newContent: string) => {
+      setFiles(prev => ({
+          ...prev,
+          [path]: newContent
+      }));
+  }, []);
+
+  // Parse all blocks of ACTIVE file
   const blocks = useMemo(() => {
+    if (!content) return [];
     const parser = new BasicPipeParser();
     return parser.parse(content);
   }, [content]);
 
   // Lint Content
   const lintErrors = useMemo(() => {
-      const linter = new AsciiDocLinter();
-      return linter.lint(content);
+    if (!content) return [];  
+    const linter = new AsciiDocLinter();
+    return linter.lint(content);
   }, [content]);
 
   // Sync Scroll State
@@ -52,9 +68,15 @@ function App() {
   const [theme, setTheme] = useState<'light'|'dark'>('dark');
   const previewRef = React.useRef<HTMLDivElement>(null);
 
+  // Apply Theme Variables
+  useEffect(() => {
+    applyTheme(theme);
+  }, [theme]);
+
   // Handle updates from Visual Editor (both Table and Text) via ID
   const handleBlockUpdate = useCallback((id: string, updatedData: any) => {
-      // ... (existing logic)
+      if (!activeFile) return;
+
       const targetBlock = blocks.find(b => b.id === id);
       if (!targetBlock) return;
       
@@ -70,7 +92,8 @@ function App() {
       }
 
       // Split content into lines to replace the exact block
-      const lines = content.split('\n');
+      const currentContent = files[activeFile] || '';
+      const lines = currentContent.split('\n');
       
       const preBlock = lines.slice(0, targetBlock.startLine);
       const postBlock = lines.slice(targetBlock.endLine + 1);
@@ -81,9 +104,10 @@ function App() {
           ...postBlock
       ].join('\n');
 
-      setContent(newContent);
-  }, [content, blocks]);
+      updateFileContent(activeFile, newContent);
+  }, [files, activeFile, blocks, updateFileContent]);
 
+  // ... (edit handlers remain same)
   const handleEditBlock = useCallback((id: string, type: 'table' | 'text') => {
       setActiveBlockId(id);
   }, []);
@@ -92,7 +116,7 @@ function App() {
       setActiveBlockId(null);
   }, []);
 
-  // Sync Scroll Handler
+  // ... (scroll handlers remain same)
   const handleEditorScroll = useCallback((scrollTop: number, ratio: number) => {
       if (syncScroll && previewRef.current) {
           const previewEl = previewRef.current;
@@ -114,9 +138,20 @@ function App() {
       return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  const handleFileUpload = (newContent: string, filename: string) => {
-      // TODO: Handle filename if we support multiple files later
-      setContent(newContent);
+  const handleFilesUpload = (uploadedFiles: { path: string, content: string }[]) => {
+      if (uploadedFiles.length === 0) return;
+
+      const newFiles = { ...files };
+      uploadedFiles.forEach(f => {
+          newFiles[f.path] = f.content;
+      });
+      
+      setFiles(newFiles);
+      
+      // Auto-select the first newly uploaded file
+      if (uploadedFiles.length > 0) {
+          setActiveFile(uploadedFiles[0].path);
+      }
   };
 
   return (
@@ -127,12 +162,17 @@ function App() {
             theme={theme}
             onThemeChange={setTheme}
             explorer={
-                <FileExplorer onFileUpload={handleFileUpload} />
+                <FileExplorer 
+                    files={files}
+                    activeFile={activeFile}
+                    onSelectFile={setActiveFile}
+                    onUpload={handleFilesUpload}
+                />
             }
             editor={
         <SourceEditor 
           value={content} 
-          onChange={setContent} 
+          onChange={(newVal) => activeFile && updateFileContent(activeFile, newVal)} 
           lintErrors={lintErrors}
           onScroll={handleEditorScroll}
         />
