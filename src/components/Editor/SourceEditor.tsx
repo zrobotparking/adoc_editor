@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useMemo, useRef } from 'react';
 import type { LintError } from '../../core/Linter';
+import { AsciiDocTokenizer, type Token } from '../../core/AsciiDocTokenizer';
 
 interface SourceEditorProps {
     value: string;
@@ -10,18 +11,35 @@ interface SourceEditorProps {
 }
 
 export const SourceEditor: React.FC<SourceEditorProps> = ({ value, onChange, lintErrors = [], onScroll, onSelectionChange }) => {
-    const textareaRef = React.useRef<HTMLTextAreaElement>(null);
-    const gutterRef = React.useRef<HTMLDivElement>(null);
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
+    const overlayRef = useRef<HTMLPreElement>(null);
+    const gutterRef = useRef<HTMLDivElement>(null);
+
+    // Tokenizer
+    const tokens = useMemo(() => {
+        const tokenizer = new AsciiDocTokenizer();
+        return tokenizer.tokenize(value);
+    }, [value]);
 
     const handleScroll = () => {
-        if (textareaRef.current && gutterRef.current) {
+        if (textareaRef.current) {
             const scrollTop = textareaRef.current.scrollTop;
+            const scrollLeft = textareaRef.current.scrollLeft;
             const scrollHeight = textareaRef.current.scrollHeight;
             const clientHeight = textareaRef.current.clientHeight;
             
-            gutterRef.current.scrollTop = scrollTop;
+            // Sync Gutter
+            if (gutterRef.current) {
+                gutterRef.current.scrollTop = scrollTop;
+            }
+
+            // Sync Overlay
+            if (overlayRef.current) {
+                overlayRef.current.scrollTop = scrollTop;
+                overlayRef.current.scrollLeft = scrollLeft;
+            }
             
-            // Notify parent
+            // Notify parent for preview sync
             if (onScroll) {
                 const ratio = scrollTop / (scrollHeight - clientHeight || 1);
                 onScroll(scrollTop, ratio);
@@ -30,7 +48,7 @@ export const SourceEditor: React.FC<SourceEditorProps> = ({ value, onChange, lin
     };
 
     const lines = value.split('\n');
-    const errorMap = React.useMemo(() => {
+    const errorMap = useMemo(() => {
         const map = new Map<number, LintError[]>();
         lintErrors.forEach(err => {
             if (!map.has(err.line)) map.set(err.line, []);
@@ -46,14 +64,55 @@ export const SourceEditor: React.FC<SourceEditorProps> = ({ value, onChange, lin
             const beforeEnd = value.substring(0, selectionEnd);
             const selectedText = value.substring(selectionStart, selectionEnd);
             
+            // Fix: remove duplicate endLine calculation if present in previous version
             const startLine = beforeStart.split('\n').length - 1;
             const endLine = beforeEnd.split('\n').length - 1;
-            
-            
+           
             if (onSelectionChange) {
                 onSelectionChange({ startLine, endLine, text: selectedText });
             }
         }
+    };
+
+    // Construct Overlay HTML
+    const renderOverlay = () => {
+        let lastIndex = 0;
+        const elements: React.ReactNode[] = [];
+
+        tokens.forEach((token, idx) => {
+             // Fill gaps with plain text (though Tokenizer usually covers all, safe fallback)
+             if (token.start > lastIndex) {
+                 elements.push(<span key={`gap-${idx}`} style={{color: 'var(--text-editor)'}}>{value.substring(lastIndex, token.start)}</span>);
+             }
+
+             const colorVar = `var(--syntax-${token.type})`;
+             // Styling based on token type
+             let style: React.CSSProperties = { color: colorVar };
+             if (token.type === 'bold' || token.type === 'header') style.fontWeight = 'bold';
+             if (token.type === 'italic') style.fontStyle = 'italic';
+             if (token.type === 'header') style.textDecoration = 'none'; // Optional
+
+             elements.push(
+                 <span key={idx} style={style}>
+                     {token.text}
+                 </span>
+             );
+
+             lastIndex = token.end;
+        });
+        
+        // Trailing text
+        if (lastIndex < value.length) {
+             elements.push(<span key="tail" style={{color: 'var(--text-editor)'}}>{value.substring(lastIndex)}</span>);
+        }
+
+        // IMPORTANT: Add a newline character at the end if the value ends with \n, 
+        // to ensure the pre tag heights matches the textarea
+        if (value.endsWith('\n')) {
+            elements.push(<br key="br-end" />);
+        }
+
+        return elements;
     };
 
     return (
@@ -64,11 +123,12 @@ export const SourceEditor: React.FC<SourceEditorProps> = ({ value, onChange, lin
                 <div 
                     ref={gutterRef}
                     className="w-12 bg-editor-gutter text-editor-gutter-text text-right font-mono text-sm leading-relaxed p-4 pr-2 select-none overflow-hidden border-r border-explorer-border"
+                    style={{ lineHeight: '21px', paddingTop: '16px' }} // Explicit metrics
                 >
                     {lines.map((_, i) => {
                         const hasError = errorMap.has(i);
                         return (
-                            <div key={i} className="relative h-[21px]"> {/* Assuming standard line-height matches textarea roughly, might need tuning */}
+                            <div key={i} className="relative h-[21px]">
                                 {hasError && (
                                     <span className="absolute left-0 text-yellow-500 font-bold" title={errorMap.get(i)?.[0].message}>
                                         !
@@ -80,19 +140,40 @@ export const SourceEditor: React.FC<SourceEditorProps> = ({ value, onChange, lin
                     })}
                 </div>
 
-                {/* Textarea */}
-                <textarea
-                    ref={textareaRef}
-                    className="flex-grow bg-editor-bg text-editor-text font-mono p-4 pl-2 resize-none focus:outline-none text-sm leading-relaxed whitespace-pre"
-                    value={value}
-                    onChange={(e) => onChange(e.target.value)}
-                    onScroll={handleScroll}
-                    onSelect={handleSelect}
-                    onClick={handleSelect}
-                    onKeyUp={handleSelect}
-                    spellCheck={false}
-                    style={{ lineHeight: '21px' }} // Enforce line-height for alignment
-                />
+                {/* Editor Container - Stacked */}
+                <div className="flex-grow relative font-mono text-sm leading-relaxed" style={{ fontSize: '14px', lineHeight: '21px' }}>
+                    {/* Syntax Overlay */}
+                    <pre
+                        ref={overlayRef}
+                        aria-hidden="true"
+                        className="absolute inset-0 p-4 m-0 overflow-hidden whitespace-pre pointer-events-none bg-editor-bg"
+                        style={{ 
+                            fontFamily: 'monospace',
+                            boxSizing: 'border-box'
+                        }}
+                    >
+                        {renderOverlay()}
+                    </pre>
+
+                    {/* Interaction Layer (Textarea) */}
+                    <textarea
+                        ref={textareaRef}
+                        className="absolute inset-0 w-full h-full p-4 m-0 resize-none outline-none whitespace-pre bg-transparent text-transparent caret-editor-text"
+                        style={{ 
+                            fontFamily: 'monospace',
+                            caretColor: 'var(--text-secondary)', // Use visible color for caret
+                            zIndex: 1,
+                            boxSizing: 'border-box'
+                        }}
+                        value={value}
+                        onChange={(e) => onChange(e.target.value)}
+                        onScroll={handleScroll}
+                        onSelect={handleSelect}
+                        onClick={handleSelect}
+                        onKeyUp={handleSelect}
+                        spellCheck={false}
+                    />
+                </div>
             </div>
             
             {/* Error Panel (Bottom) */}

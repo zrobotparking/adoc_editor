@@ -34,6 +34,38 @@
     color: var(--preview-header-text);
 }
 
+.asciidoc-preview h3 {
+    font-size: 1.25em;
+    font-weight: 600;
+    margin-top: 1.5em;
+    margin-bottom: 0.5em;
+    color: var(--preview-header-text);
+}
+
+.asciidoc-preview h4 {
+    font-size: 1em;
+    font-weight: 600;
+    margin-top: 1.5em;
+    margin-bottom: 0.5em;
+    color: var(--preview-header-text);
+}
+
+.asciidoc-preview h5 {
+    font-size: 0.875em;
+    font-weight: 600;
+    margin-top: 1.5em;
+    margin-bottom: 0.5em;
+    color: var(--preview-header-text);
+}
+
+.asciidoc-preview h6 {
+    font-size: 0.85em;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-top: 1.5em;
+    margin-bottom: 0.5em;
+}
+
 .asciidoc-preview a {
     color: var(--preview-link);
     text-decoration: none;

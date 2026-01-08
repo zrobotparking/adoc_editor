@@ -52,6 +52,20 @@ export interface ThemeColors {
     '--btn-secondary-bg': string;
     '--btn-secondary-text': string;
     '--btn-secondary-hover': string;
+
+    // Syntax Highlighting
+    '--syntax-header': string;
+    '--syntax-bold': string;
+    '--syntax-italic': string;
+    '--syntax-list': string;
+    '--syntax-link': string;
+    '--syntax-code': string;
+    '--syntax-code-block': string;
+    '--syntax-attribute': string;
+    '--syntax-string': string;
+    '--syntax-comment': string;
+    '--syntax-macro': string;
+    '--syntax-passthrough': string;
 }
 
 export type ThemeName = 'light' | 'dark';
@@ -103,7 +117,21 @@ export const themes: Record<ThemeName, ThemeColors> = {
         '--btn-primary-text': '#ffffff',
         '--btn-secondary-bg': '#e5e7eb',
         '--btn-secondary-text': '#1f2937',
-        '--btn-secondary-hover': '#d1d5db'
+        '--btn-secondary-hover': '#d1d5db',
+
+        // Syntax Highlighting (Light+)
+        '--syntax-header': '#005cc5', // Blue
+        '--syntax-bold': '#24292f',
+        '--syntax-italic': '#24292f',
+        '--syntax-list': '#005cc5',
+        '--syntax-link': '#032f62',
+        '--syntax-code': '#e3116c',
+        '--syntax-code-block': '#e3116c',
+        '--syntax-attribute': '#005cc5',
+        '--syntax-string': '#032f62',
+        '--syntax-comment': '#6a737d',
+        '--syntax-macro': '#6f42c1',
+        '--syntax-passthrough': '#e3116c'
     },
     dark: {
         '--bg-app': '#1e1e1e', // VS Code Dark+ Base
@@ -151,7 +179,21 @@ export const themes: Record<ThemeName, ThemeColors> = {
         '--btn-primary-text': '#ffffff',
         '--btn-secondary-bg': '#3c3c3c', // VS Code Input bg
         '--btn-secondary-text': '#cccccc',
-        '--btn-secondary-hover': '#474747'
+        '--btn-secondary-hover': '#474747',
+
+        // Syntax Highlighting (Dark+)
+        '--syntax-header': '#569cd6', // Blue
+        '--syntax-bold': '#d4d4d4',   // Standard (bolded via css)
+        '--syntax-italic': '#d4d4d4', // Standard (italic via css)
+        '--syntax-list': '#6796e6',   // Soft Blue
+        '--syntax-link': '#3794ff',   // Blue link
+        '--syntax-code': '#ce9178',   // Orangeish
+        '--syntax-code-block': '#ce9178',
+        '--syntax-attribute': '#4ec9b0', // Teal-ish
+        '--syntax-string': '#ce9178',
+        '--syntax-comment': '#6a9955', // Green
+        '--syntax-macro': '#c586c0',   // Purple
+        '--syntax-passthrough': '#ce9178'
     }
 };
 
