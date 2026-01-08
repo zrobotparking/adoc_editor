@@ -5,8 +5,13 @@ interface MainLayoutProps {
   explorer?: ReactNode;
   editor: ReactNode;
   preview: ReactNode;
-  isSyncScroll?: boolean;
-  onToggleSyncScroll?: () => void;
+  
+  // Sync Controls
+  isSyncSourceToPreview?: boolean;
+  onToggleSyncSourceToPreview?: () => void;
+  isSyncPreviewToSource?: boolean;
+  onToggleSyncPreviewToSource?: () => void;
+
   // Theme props
   theme?: 'light' | 'dark';
   onThemeChange?: (theme: 'light' | 'dark') => void;
@@ -16,8 +21,10 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
   explorer, 
   editor, 
   preview,
-  isSyncScroll = true,
-  onToggleSyncScroll,
+  isSyncSourceToPreview = true,
+  onToggleSyncSourceToPreview,
+  isSyncPreviewToSource = true,
+  onToggleSyncPreviewToSource,
   theme = 'dark',
   onThemeChange
 }) => {
@@ -80,8 +87,19 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
 
       {/* Middle Pane: Source Editor */}
       <div className={`flex-1 flex flex-col border-r ${borderClass} min-w-[300px]`}>
-         <div className={`p-2 border-b ${borderClass} ${headerBgClass} text-sm font-medium`}>
-             Source.adoc
+         <div className={`p-2 border-b ${borderClass} ${headerBgClass} text-sm font-medium flex justify-between items-center`}>
+             <span>Source.adoc</span>
+             <button 
+                onClick={onToggleSyncSourceToPreview}
+                className={`text-xs px-2 py-1 rounded transition-colors ${
+                  isSyncSourceToPreview 
+                    ? 'bg-blue-600 text-white hover:bg-blue-700' 
+                    : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
+                }`}
+                title="Controls whether scrolling Source scrolls Preview"
+              >
+                Sync Scroll: {isSyncSourceToPreview ? 'ON' : 'OFF'}
+              </button>
          </div>
          <div className="flex-1 overflow-hidden relative">
              {editor}
@@ -93,15 +111,15 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
           <div className={`p-2 border-b ${borderClass} ${headerBgClass} text-sm font-medium flex justify-between items-center`}>
               <span>Preview</span>
               <button 
-                onClick={onToggleSyncScroll}
+                onClick={onToggleSyncPreviewToSource}
                 className={`text-xs px-2 py-1 rounded transition-colors ${
-                  isSyncScroll 
+                  isSyncPreviewToSource 
                     ? 'bg-blue-600 text-white hover:bg-blue-700' 
                     : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
                 }`}
-                title="Toggle Sync Scrolling"
+                title="Controls whether scrolling Preview scrolls Source"
               >
-                Sync Scroll: {isSyncScroll ? 'ON' : 'OFF'}
+                Sync Scroll: {isSyncPreviewToSource ? 'ON' : 'OFF'}
               </button>
           </div>
           <div className="flex-1 overflow-auto bg-preview-bg text-preview-text p-4 relative" id="preview-container">

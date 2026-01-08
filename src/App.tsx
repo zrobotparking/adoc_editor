@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { MainLayout } from './components/Layout/MainLayout';
-import { SourceEditor } from './components/Editor/SourceEditor';
+import { SourceEditor, type SourceEditorHandle } from './components/Editor/SourceEditor';
 import { DocPreview } from './components/Preview/DocPreview';
 import { BasicPipeParser } from './core/TableParser';
 import { BasicTableSerializer } from './core/TableSerializer';
@@ -27,8 +27,6 @@ Here is some text between tables.
 import { AsciiDocLinter } from './core/Linter';
 import { FileExplorer } from './components/Explorer/FileExplorer';
 import { applyTheme } from './core/theme/themeConfig';
-
-// ... (previous imports)
 
 function App() {
   // Multi-File State
@@ -63,10 +61,16 @@ function App() {
     return linter.lint(content);
   }, [content]);
 
-  // Sync Scroll State
-  const [syncScroll, setSyncScroll] = useState(true);
+  // Sync Scroll State - Independent
+  const [syncSourceToPreview, setSyncSourceToPreview] = useState(true);
+  const [syncPreviewToSource, setSyncPreviewToSource] = useState(true);
+  
   const [theme, setTheme] = useState<'light'|'dark'>('dark');
   const previewRef = React.useRef<HTMLDivElement>(null);
+  const sourceEditorRef = React.useRef<SourceEditorHandle>(null);
+  
+  // Mutex for loop prevention
+  const isScrollingRef = React.useRef(false);
 
   // Apply Theme Variables
   useEffect(() => {
@@ -107,7 +111,6 @@ function App() {
       updateFileContent(activeFile, newContent);
   }, [files, activeFile, blocks, updateFileContent]);
 
-  // ... (edit handlers remain same)
   const handleEditBlock = useCallback((id: string, type: 'table' | 'text') => {
       setActiveBlockId(id);
   }, []);
@@ -116,15 +119,34 @@ function App() {
       setActiveBlockId(null);
   }, []);
 
-  // ... (scroll handlers remain same)
+  // Scroll Handlers
+  
+  // Source -> Preview
   const handleEditorScroll = useCallback((scrollTop: number, ratio: number) => {
-      if (syncScroll && previewRef.current) {
+      if (syncSourceToPreview && previewRef.current) {
           const previewEl = previewRef.current;
-          const targetScroll = ratio * (previewEl.scrollHeight - previewEl.clientHeight);
-          previewEl.scrollTop = targetScroll;
+          
+          if (!isScrollingRef.current) {
+               isScrollingRef.current = true;
+               const targetScroll = ratio * (previewEl.scrollHeight - previewEl.clientHeight);
+               previewEl.scrollTop = targetScroll;
+               
+               // Debounce/Timeout reset
+               setTimeout(() => { isScrollingRef.current = false; }, 50);
+          }
       }
-  }, [syncScroll]);
+  }, [syncSourceToPreview]);
 
+  // Preview -> Source
+  const handlePreviewScroll = useCallback((scrollTop: number, ratio: number) => {
+      if (syncPreviewToSource && sourceEditorRef.current) {
+          if (!isScrollingRef.current) {
+              isScrollingRef.current = true;
+              sourceEditorRef.current.scrollTo(ratio);
+              setTimeout(() => { isScrollingRef.current = false; }, 50);
+          }
+      }
+  }, [syncPreviewToSource]);
 
   // ESC key handler to exit edit mode
   useEffect(() => {
@@ -171,8 +193,10 @@ function App() {
   return (
     <div className={theme === 'dark' ? 'dark' : ''}>
         <MainLayout
-            isSyncScroll={syncScroll}
-            onToggleSyncScroll={() => setSyncScroll(!syncScroll)}
+            isSyncSourceToPreview={syncSourceToPreview}
+            onToggleSyncSourceToPreview={() => setSyncSourceToPreview(!syncSourceToPreview)}
+            isSyncPreviewToSource={syncPreviewToSource}
+            onToggleSyncPreviewToSource={() => setSyncPreviewToSource(!syncPreviewToSource)}
             theme={theme}
             onThemeChange={setTheme}
             explorer={
@@ -185,6 +209,7 @@ function App() {
             }
             editor={
         <SourceEditor 
+          ref={sourceEditorRef}
           value={content} 
           onChange={(newVal) => activeFile && updateFileContent(activeFile, newVal)} 
           lintErrors={lintErrors}
@@ -202,6 +227,7 @@ function App() {
             activeBlockId={activeBlockId}
             highlightedBlockIds={highlightedBlockIds}
             highlightText={selectedText}
+            onScroll={handlePreviewScroll}
         />
       }
     />

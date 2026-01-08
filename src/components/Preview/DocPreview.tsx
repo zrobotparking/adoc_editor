@@ -11,6 +11,7 @@ interface DocPreviewProps {
     activeBlockId: string | null;
     highlightedBlockIds?: string[];
     highlightText?: string;
+    onScroll?: (scrollTop: number, ratio: number) => void;
 }
 
 export const DocPreview = forwardRef<HTMLDivElement, DocPreviewProps>(({ 
@@ -20,10 +21,23 @@ export const DocPreview = forwardRef<HTMLDivElement, DocPreviewProps>(({
     onCancelEdit,
     activeBlockId,
     highlightedBlockIds = [],
-    highlightText
+    highlightText,
+    onScroll
 }, ref) => {
+    const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+        if (!onScroll) return;
+        const target = e.currentTarget;
+        const { scrollTop, scrollHeight, clientHeight } = target;
+        const ratio = scrollTop / (scrollHeight - clientHeight || 1);
+        onScroll(scrollTop, ratio);
+    };
+
     return (
-        <div ref={ref} className="asciidoc-preview p-4 bg-preview-bg text-preview-text h-full overflow-auto font-sans leading-relaxed">
+        <div 
+            ref={ref} 
+            onScroll={handleScroll}
+            className="asciidoc-preview p-4 bg-preview-bg text-preview-text h-full overflow-auto font-sans leading-relaxed"
+        >
             {blocks.map((block) => (
                 <PreviewBlock 
                     key={block.id} 

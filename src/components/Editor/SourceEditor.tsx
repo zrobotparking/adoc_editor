@@ -1,6 +1,10 @@
-import React, { useMemo, useRef } from 'react';
+import React, { useMemo, useRef, forwardRef, useImperativeHandle } from 'react';
 import type { LintError } from '../../core/Linter';
 import { AsciiDocTokenizer, type Token } from '../../core/AsciiDocTokenizer';
+
+export interface SourceEditorHandle {
+    scrollTo: (ratio: number) => void;
+}
 
 interface SourceEditorProps {
     value: string;
@@ -10,10 +14,27 @@ interface SourceEditorProps {
     onSelectionChange?: (selection: { startLine: number, endLine: number, text: string }) => void;
 }
 
-export const SourceEditor: React.FC<SourceEditorProps> = ({ value, onChange, lintErrors = [], onScroll, onSelectionChange }) => {
+export const SourceEditor = forwardRef<SourceEditorHandle, SourceEditorProps>(({ value, onChange, lintErrors = [], onScroll, onSelectionChange }, ref) => {
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const overlayRef = useRef<HTMLPreElement>(null);
     const gutterRef = useRef<HTMLDivElement>(null);
+
+    useImperativeHandle(ref, () => ({
+        scrollTo: (ratio: number) => {
+            if (textareaRef.current) {
+                const { scrollHeight, clientHeight } = textareaRef.current;
+                const targetScroll = ratio * (scrollHeight - clientHeight);
+                textareaRef.current.scrollTop = targetScroll;
+                // handleScroll will be triggered by event if we rely on onScroll, 
+                // but programmatic scroll doesn't always trigger onScroll depending on browser/react.
+                // However, we handle syncing in handleScroll, so we probably WANT it to trigger.
+                // Or we manually sync gutter/overlay here to be smooth.
+                if (gutterRef.current) gutterRef.current.scrollTop = targetScroll;
+                if (overlayRef.current) overlayRef.current.scrollTop = targetScroll;
+            }
+        }
+    }));
+
 
     // Tokenizer
     const tokens = useMemo(() => {
@@ -189,4 +210,4 @@ export const SourceEditor: React.FC<SourceEditorProps> = ({ value, onChange, lin
             )}
         </div>
     );
-};
+});
