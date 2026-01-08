@@ -41,10 +41,10 @@ const EditableCell: React.FC<{
     };
 
     const Tag = isHeader ? 'th' : 'td';
-    // Style: Light mode = Gray-100 header, White cell. Dark mode = Gray-700 header, Gray-800 cell.
+    // Style: Use semantic classes
     const className = isHeader 
-        ? "border border-gray-300 dark:border-gray-600 p-0 bg-gray-100 dark:bg-gray-700 font-bold min-w-[100px] align-top text-gray-900 dark:text-gray-100"
-        : "border border-gray-300 dark:border-gray-600 p-0 bg-white dark:bg-gray-800 hover:bg-blue-50 dark:hover:bg-gray-700 min-w-[100px] align-top text-gray-900 dark:text-gray-100";
+        ? "border border-explorer-border p-0 bg-app-header font-bold min-w-[100px] align-top text-text-primary"
+        : "border border-explorer-border p-0 bg-app-base hover:bg-explorer-item-hover min-w-[100px] align-top text-text-primary";
 
     return (
         <Tag className={className}>
@@ -87,7 +87,7 @@ export const VisualTableEditor: React.FC<VisualTableEditorProps> = ({ data, onUp
     };
 
     return (
-        <div className="flex-1 overflow-auto p-4 font-sans bg-gray-50 dark:bg-gray-900 rounded">
+        <div className="flex-1 overflow-auto p-4 font-sans bg-app-base rounded">
              <table className="w-full border-collapse text-sm shadow-sm">
                 <thead>
                    {/* Simplified rendering: First row as header for now */}

@@ -41,21 +41,21 @@ export const PreviewBlock: React.FC<PreviewBlockProps> = ({
 
     if (isEditing) {
         return (
-            <div className="my-4 border-2 border-blue-500 rounded-lg shadow-lg bg-white dark:bg-gray-800 overflow-hidden">
-                <div className="flex justify-between items-center p-2 bg-gray-100 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
-                    <span className="font-bold text-sm text-gray-600 dark:text-gray-200 uppercase">
+            <div className="my-4 border-2 border-edit-border rounded-lg shadow-lg bg-edit-bg overflow-hidden">
+                <div className="flex justify-between items-center p-2 bg-app-header border-b border-edit-border">
+                    <span className="font-bold text-sm text-edit-label uppercase">
                         Editing {block.type}
                     </span>
                     <div className="space-x-2">
                         <button 
                             onClick={onCancel}
-                            className="px-3 py-1 text-xs text-gray-600 hover:bg-gray-200 rounded"
+                            className="px-3 py-1 text-xs text-btn-secondary-text bg-btn-secondary hover:bg-btn-secondary-hover rounded"
                         >
                             Cancel (ESC)
                         </button>
                         <button 
                             onClick={onCancel} // "Done" effectively acts as exit since updates are real-time or handled by parent
-                            className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
+                            className="px-3 py-1 text-xs bg-btn-primary text-btn-primary-text rounded hover:bg-opacity-90"
                         >
                             Done
                         </button>

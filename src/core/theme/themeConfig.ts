@@ -41,6 +41,11 @@ export interface ThemeColors {
     '--preview-code-bg': string;
     '--preview-code-text': string;
 
+    // Edit Widget
+    '--edit-widget-bg': string;
+    '--edit-widget-border': string;
+    '--edit-widget-label': string;
+
     // Buttons / Interactions
     '--btn-primary-bg': string;
     '--btn-primary-text': string;
@@ -90,6 +95,10 @@ export const themes: Record<ThemeName, ThemeColors> = {
         '--preview-code-bg': '#f6f8fa',
         '--preview-code-text': '#24292f',
 
+        '--edit-widget-bg': '#fff7ed', // orange-50
+        '--edit-widget-border': '#fdba74', // orange-300
+        '--edit-widget-label': '#c2410c', // orange-700
+
         '--btn-primary-bg': '#2563eb',
         '--btn-primary-text': '#ffffff',
         '--btn-secondary-bg': '#e5e7eb',
@@ -133,6 +142,10 @@ export const themes: Record<ThemeName, ThemeColors> = {
         '--preview-table-row-even-bg': '#262626', // very subtle stripe? or nothing. VS Code usually plain but let's do subtle.
         '--preview-code-bg': '#2d2d2d',
         '--preview-code-text': '#ce9178', // Orangeish for inline code
+
+        '--edit-widget-bg': '#2d2624', // Dark with orange tint
+        '--edit-widget-border': '#ce9178', // VS Code String Color
+        '--edit-widget-label': '#ce9178',
 
         '--btn-primary-bg': '#0e639c', // VS Code Blue
         '--btn-primary-text': '#ffffff',

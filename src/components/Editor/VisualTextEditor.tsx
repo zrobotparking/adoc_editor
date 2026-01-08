@@ -34,7 +34,7 @@ export const VisualTextEditor: React.FC<VisualTextEditorProps> = ({ initialConte
             value={value}
             onChange={handleChange}
             onBlur={handleBlur}
-            className="w-full p-4 border-none outline-none resize-none font-mono bg-white text-black"
+            className="w-full p-4 border-none outline-none resize-none font-mono bg-app-base text-text-primary"
             style={{ minHeight: '100px', display: 'block', overflow: 'hidden' }}
             autoFocus
         />

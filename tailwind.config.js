@@ -39,6 +39,11 @@ export default {
           bg: 'var(--bg-preview)',
           text: 'var(--text-preview)',
         },
+        edit: {
+          bg: 'var(--edit-widget-bg)',
+          border: 'var(--edit-widget-border)',
+          label: 'var(--edit-widget-label)',
+        },
         btn: {
           primary: 'var(--btn-primary-bg)',
           'primary-text': 'var(--btn-primary-text)',
