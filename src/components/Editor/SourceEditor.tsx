@@ -1,6 +1,7 @@
 import React, { useMemo, useRef, forwardRef, useImperativeHandle } from 'react';
 import type { LintError } from '../../core/Linter';
 import { AsciiDocTokenizer, type Token } from '../../core/AsciiDocTokenizer';
+import { EditorToolbar } from './EditorToolbar';
 
 export interface SourceEditorHandle {
     scrollTo: (ratio: number) => void;
@@ -8,11 +9,13 @@ export interface SourceEditorHandle {
 
 interface SourceEditorProps {
     value: string;
-    onChange: (value: string) => void;
+    onChange: (value: string, immediate?: boolean) => void;
     lintErrors?: LintError[];
     onScroll?: (scrollTop: number, scrollRatio: number) => void;
     onSelectionChange?: (selection: { startLine: number, endLine: number, text: string }) => void;
     highlightedRanges?: { startLine: number, endLine: number }[];
+    onUndo?: () => void;
+    onRedo?: () => void;
 }
 
 export const SourceEditor = forwardRef<SourceEditorHandle, SourceEditorProps>(({ 
@@ -21,7 +24,9 @@ export const SourceEditor = forwardRef<SourceEditorHandle, SourceEditorProps>(({
     lintErrors = [], 
     onScroll, 
     onSelectionChange,
-    highlightedRanges = []
+    highlightedRanges = [],
+    onUndo,
+    onRedo
 }, ref) => {
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const overlayRef = useRef<HTMLPreElement>(null);
@@ -41,6 +46,96 @@ export const SourceEditor = forwardRef<SourceEditorHandle, SourceEditorProps>(({
             }
         }
     }));
+
+    // Helper to insert text at cursor
+    const insertAtCursor = (prefix: string, suffix: string = '') => {
+        const textarea = textareaRef.current;
+        if (!textarea) return;
+
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const text = textarea.value;
+        
+        const before = text.substring(0, start);
+        const selection = text.substring(start, end);
+        const after = text.substring(end);
+
+        const newContent = before + prefix + selection + suffix + after;
+        
+        // Toolbar actions are discrete steps, so they should always commit immediately
+        onChange(newContent, true);
+
+        // Restore focus and selection
+        setTimeout(() => {
+            textarea.focus();
+            if (selection.length > 0) {
+                textarea.setSelectionRange(start + prefix.length, start + prefix.length + selection.length);
+            } else {
+                textarea.setSelectionRange(start + prefix.length, start + prefix.length);
+            }
+        }, 0);
+    };
+
+    const handleToolbarAction = (action: string, value?: string) => {
+        const textarea = textareaRef.current;
+        if (!textarea && action !== 'undo' && action !== 'redo') return;
+
+        switch(action) {
+            case 'undo':
+                if (onUndo) onUndo();
+                break;
+            case 'redo':
+                if (onRedo) onRedo();
+                break;
+            case 'bold':
+                insertAtCursor('*', '*');
+                break;
+            case 'italic':
+                insertAtCursor('_', '_');
+                break;
+            case 'strike':
+                insertAtCursor('[.line-through]#', '#');
+                break;
+            case 'heading':
+                const level = parseInt(value || '1');
+                const equals = '='.repeat(level);
+                insertAtCursor(`${equals} `);
+                break;
+            case 'code':
+                insertAtCursor('`', '`');
+                break;
+            case 'codeBlock':
+                insertAtCursor('\n....\n', '\n....\n');
+                break;
+            case 'quote':
+                insertAtCursor('\n____\n', '\n____\n');
+                break;
+            case 'ul':
+                insertAtCursor('* ');
+                break;
+            case 'ol':
+                insertAtCursor('. ');
+                break;
+            case 'checklist':
+                insertAtCursor('* [ ] ');
+                break;
+            case 'link':
+                insertAtCursor('http://url[', ']');
+                break;
+            case 'image':
+                insertAtCursor('image::url[', ']');
+                break;
+            case 'table':
+                insertAtCursor('\n|===\n|Header 1 |Header 2\n\n|Cell 1 |Cell 2\n|===\n');
+                break;
+            case 'hr':
+                insertAtCursor("\n'''\n");
+                break;
+            case 'comment':
+                insertAtCursor('// ');
+                break;
+        }
+    };
 
     // Tokenizer
     const tokens = useMemo(() => {
@@ -80,7 +175,6 @@ export const SourceEditor = forwardRef<SourceEditorHandle, SourceEditorProps>(({
         }
     };
 
-    // ... (rest of logic: lines, errorMap, handleSelect, renderOverlay)
     const lines = value.split('\n');
     const errorMap = useMemo(() => {
         const map = new Map<number, LintError[]>();
@@ -109,10 +203,10 @@ export const SourceEditor = forwardRef<SourceEditorHandle, SourceEditorProps>(({
 
     // Construct Overlay HTML
     const renderOverlay = () => {
-        // ... (function body same as before, no changes needed inside)
         let lastIndex = 0;
         const elements: React.ReactNode[] = [];
-
+        
+        // Fix: tokens is an array, iterate directly
         tokens.forEach((token, idx) => {
              if (token.start > lastIndex) {
                  elements.push(<span key={`gap-${idx}`} style={{color: 'var(--text-editor)'}}>{value.substring(lastIndex, token.start)}</span>);
@@ -150,8 +244,11 @@ export const SourceEditor = forwardRef<SourceEditorHandle, SourceEditorProps>(({
     const contentHeight = Math.max((lines.length * 21) + 32, 100); 
 
     return (
-        <div className="flex flex-col h-full bg-editor-bg">
-             {/* ... */}
+        <div className="flex flex-col h-full bg-editor-bg border border-gray-700 rounded-lg overflow-hidden">
+             {/* Toolbar */}
+             <EditorToolbar onAction={handleToolbarAction} />
+
+             {/* Editor Area Wrapper */}
              <div className="flex flex-grow relative overflow-hidden">
                 {/* Gutter */}
                 <div 
@@ -228,10 +325,36 @@ export const SourceEditor = forwardRef<SourceEditorHandle, SourceEditorProps>(({
                             boxSizing: 'border-box'
                         }}
                         value={value}
-                        onChange={(e) => onChange(e.target.value)}
+                        onChange={(e) => {
+                            const val = e.target.value;
+                            
+                            // Smart Undo Logic
+                            // We attempt to detect "break points" in typing:
+                            // 1. Newlines (Enter)
+                            // 2. Spaces
+                            // 3. Special punctuation
+                            
+                            let immediate = false;
+                            const nativeEvent = e.nativeEvent as InputEvent;
+                            
+                            if (nativeEvent.inputType === 'insertLineBreak') {
+                                immediate = true;
+                            } else if (nativeEvent.data) {
+                                // Check for space or special chars
+                                const char = nativeEvent.data;
+                                if ([' ', '.', ',', ';', ':', '!', '?', '"', "'", '(', ')', '[', ']', '{', '}', '<', '>', '=', '|', '*', '_', '`'].includes(char)) {
+                                    immediate = true;
+                                }
+                            }
+                            
+                            onChange(val, immediate);
+                        }}
                         onScroll={handleScroll}
                         onSelect={handleSelect}
-                        onClick={handleSelect}
+                        onClick={handleSelect} // Clicks usually just update selection, handled by handleSelect. If we want click to *commit* pending text, we'd need to track pending. 
+                        // Current useHistory 'debounce' fallback handles the "stopped typing and clicked" case eventually (2s).
+                        // If user wants Click to be IMMEDIATE commit of pending text, we'd need a separate mechanism.
+                        // Assuming "Action" based (Type -> Click -> Undo should undo the typing) is handled by the natural flow or debounce.
                         onKeyUp={handleSelect}
                         spellCheck={false}
                     />
@@ -252,3 +375,5 @@ export const SourceEditor = forwardRef<SourceEditorHandle, SourceEditorProps>(({
         </div>
     );
 });
+
+SourceEditor.displayName = 'SourceEditor';

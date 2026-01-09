@@ -27,12 +27,21 @@ Here is some text between tables.
 import { AsciiDocLinter } from './core/Linter';
 import { FileExplorer } from './components/Explorer/FileExplorer';
 import { applyTheme } from './core/theme/themeConfig';
+import { useHistory } from './hooks/useHistory';
 
 function App() {
-  // Multi-File State
-  const [files, setFiles] = useState<Record<string, string>>({
+  // Multi-File State with History
+  const {
+      state: files,
+      set: setFiles,
+      undo: undoFiles,
+      redo: redoFiles,
+      canUndo,
+      canRedo
+  } = useHistory<Record<string, string>>({
       'example.adoc': INITIAL_CONTENT
-  });
+  }, 800);
+
   const [activeFile, setActiveFile] = useState<string | null>('example.adoc');
   const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
 
@@ -40,12 +49,24 @@ function App() {
   const content = activeFile ? (files[activeFile] || '') : '';
 
   // Update a specific file's content
-  const updateFileContent = useCallback((path: string, newContent: string) => {
-      setFiles(prev => ({
-          ...prev,
+  const updateFileContent = useCallback((path: string, newContent: string, immediate: boolean = false) => {
+      // We need to merge with existing files state
+      // Note: Since 'files' here comes from useHistory state, we get the latest
+      // However, inside setFiles, we effectively push a NEW object
+      setFiles({
+          ...files,
           [path]: newContent
-      }));
-  }, []);
+      }, immediate);
+  }, [files, setFiles]);
+
+  const handleUndo = useCallback(() => {
+      if (canUndo) undoFiles();
+  }, [canUndo, undoFiles]);
+
+  const handleRedo = useCallback(() => {
+      if (canRedo) redoFiles();
+  }, [canRedo, redoFiles]);
+
 
   // Parse all blocks of ACTIVE file
   const blocks = useMemo(() => {
@@ -233,11 +254,13 @@ function App() {
         <SourceEditor 
           ref={sourceEditorRef}
           value={content} 
-          onChange={(newVal) => activeFile && updateFileContent(activeFile, newVal)} 
+          onChange={(newVal, immediate) => activeFile && updateFileContent(activeFile, newVal, immediate)} 
           lintErrors={lintErrors}
           onScroll={handleEditorScroll}
           onSelectionChange={handleSelectionChange}
           highlightedRanges={activeRanges}
+          onUndo={handleUndo}
+          onRedo={handleRedo}
         />
       }
       preview={
