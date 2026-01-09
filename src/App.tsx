@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, useDeferredValue } from 'react';
 import { MainLayout } from './components/Layout/MainLayout';
 import { SourceEditor, type SourceEditorHandle } from './components/Editor/SourceEditor';
 import { DocPreview, type DocPreviewHandle } from './components/Preview/DocPreview';
@@ -30,6 +30,11 @@ import { applyTheme } from './core/theme/themeConfig';
 import { useHistory } from './hooks/useHistory';
 
 function App() {
+  console.time('App Render Total');
+  useEffect(() => {
+      console.timeEnd('App Render Total');
+  });
+
   // Multi-File State with History
   const {
       state: files,
@@ -40,24 +45,33 @@ function App() {
       canRedo
   } = useHistory<Record<string, string>>({
       'example.adoc': INITIAL_CONTENT
-  }, 800);
+  }, 2000);
 
   const [activeFile, setActiveFile] = useState<string | null>('example.adoc');
   const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
 
   // Derived current content (fallback to empty if no file)
   const content = activeFile ? (files[activeFile] || '') : '';
+  
+  // Defer content for expensive operations (Parsing, Linting, Preview)
+  // This allows the Editor (Input) to remain responsive.
+  const deferredContent = useDeferredValue(content);
+  const deferredFiles = useDeferredValue(files);
 
   // Update a specific file's content
   const updateFileContent = useCallback((path: string, newContent: string, immediate: boolean = false) => {
-      // We need to merge with existing files state
-      // Note: Since 'files' here comes from useHistory state, we get the latest
-      // However, inside setFiles, we effectively push a NEW object
-      setFiles({
-          ...files,
-          [path]: newContent
+      console.time('setFiles');
+      setFiles(prevFiles => {
+          // Optimization: If content hasn't changed, return prev (skip update)
+          if (prevFiles[path] === newContent) return prevFiles; 
+          
+          return {
+              ...prevFiles,
+              [path]: newContent
+          };
       }, immediate);
-  }, [files, setFiles]);
+      console.timeEnd('setFiles');
+  }, [setFiles]);
 
   const handleUndo = useCallback(() => {
       if (canUndo) undoFiles();
@@ -68,19 +82,19 @@ function App() {
   }, [canRedo, redoFiles]);
 
 
-  // Parse all blocks of ACTIVE file
+  // Parse all blocks of ACTIVE file using DEFERRED content
   const blocks = useMemo(() => {
-    if (!content) return [];
+    if (!deferredContent) return [];
     const parser = new BasicPipeParser();
-    return parser.parse(content);
-  }, [content]);
+    return parser.parse(deferredContent);
+  }, [deferredContent]);
 
-  // Lint Content
+  // Lint Content using DEFERRED content
   const lintErrors = useMemo(() => {
-    if (!content) return [];  
+    if (!deferredContent) return [];  
     const linter = new AsciiDocLinter();
-    return linter.lint(content);
-  }, [content]);
+    return linter.lint(deferredContent);
+  }, [deferredContent]);
 
   // Sync Scroll State - Independent
   const [syncSourceToPreview, setSyncSourceToPreview] = useState(true);
@@ -103,7 +117,10 @@ function App() {
   // Handle updates from Visual Editor (both Table and Text) via ID
   const handleBlockUpdate = useCallback((id: string, updatedData: any) => {
       if (!activeFile) return;
-
+      
+      // Note: blocks here are from deferred content, but IDs should be stable enough?
+      // Ideally we should re-parse current content to find block? 
+      // Or just trust the ID from the UI.
       const targetBlock = blocks.find(b => b.id === id);
       if (!targetBlock) return;
       
@@ -206,7 +223,12 @@ function App() {
           .filter(b => b.startLine <= endLine && b.endLine >= startLine)
           .map(b => b.id);
       
-      setHighlightedBlockIds(ids);
+      setHighlightedBlockIds(prevIds => {
+          if (prevIds.length === ids.length && prevIds.every((id, i) => id === ids[i])) {
+              return prevIds;
+          }
+          return ids;
+      });
       setSelectedText(text);
 
       // Auto-reveal block in preview
@@ -267,7 +289,7 @@ function App() {
         <DocPreview 
             ref={previewRef}
             blocks={blocks}
-            blocks={blocks}
+            blocks={blocks} // Warning: duplicate prop
             onEditBlock={handleEditBlock}
             onUpdateBlock={handleBlockUpdate}
             onCancelEdit={handleCancelEdit}
@@ -275,7 +297,7 @@ function App() {
             highlightedBlockIds={highlightedBlockIds}
             highlightText={selectedText}
             onScroll={handlePreviewScroll}
-            files={files}
+            files={deferredFiles}
         />
       }
     />

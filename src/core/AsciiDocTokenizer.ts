@@ -19,28 +19,43 @@ export interface Token {
 }
 
 export class AsciiDocTokenizer {
-    tokenize(text: string): Token[] {
-        const tokens: Token[] = [];
-        let currentIndex = 0;
+    private lineCache = new Map<string, Token[]>();
 
-        // Simple line-based tokenization for performance, but robust enough for visual highlight
+    tokenize(text: string): Token[][] {
+        const linesOfTokens: Token[][] = [];
         const lines = text.split('\n');
         
-        // We track global index manually
-        lines.forEach((line, lineIndex) => {
-            const lineStart = currentIndex;
-            
-            this.tokenizeLine(line, lineStart, tokens);
+        // Cache management: clear if too big
+        if (this.lineCache.size > 10000) {
+            this.lineCache.clear();
+        }
 
-            // Add newline
-            currentIndex += line.length + 1; // +1 for \n
+        lines.forEach((line) => {
+            let tokens = this.lineCache.get(line);
+            if (!tokens) {
+                tokens = [];
+                this.tokenizeLine(line, tokens);
+                this.lineCache.set(line, tokens);
+            }
+            linesOfTokens.push(tokens);
         });
 
-        return tokens;
+        return linesOfTokens;
     }
 
-    private tokenizeLine(line: string, offset: number, tokens: Token[]) {
+    // Regex patterns defined as static to avoid recreation
+    private static PATTERNS = [
+        { type: 'bold', regex: /^\*([^*\n]+)\*/ },
+        { type: 'italic', regex: /^([_])([^_]+)\1/ }, // simple _italic_
+        { type: 'monospace', regex: /^`([^`]+)`/ },
+        { type: 'attribute', regex: /^(:[a-zA-Z0-9_-]+:|{[a-zA-Z0-9_-]+})/ },
+        { type: 'link', regex: /^(https?:\/\/[^\s\[]+|link:[^\s\[]+|image:[^\s\[]+)(\[[^\]]*\])?/ },
+        { type: 'macro', regex: /^(btn|kbd|menu|icon):\[[^\]]*\]/ }
+    ];
+
+    private tokenizeLine(line: string, tokens: Token[]) {
         if (!line) return;
+        const offset = 0; // Relative to line start
 
         // 1. Headers (= Title, == Title) - Full line
         // Must start with = and space, or be a 1-6 level header
@@ -84,28 +99,8 @@ export class AsciiDocTokenizer {
 
         while (remaining.length > 0) {
             // Find earliest match of any inline token
-            // Patterns: 
-            // Bold: *text*
-            // Italic: _text_
-            // Monospace: `text`
-            // Attribute: :attr:, {attr}
-            // Link: http://..., link:..., image:...
-            // Macro: btn:[...], kbd:[...]
-
-            // NOTE: This is a simplified scanner. It doesn't handle overlapping perfectly but good for highlighting.
-            
-            // Regexes (simplified)
-            const patterns = [
-                { type: 'bold', regex: /^\*([^*\n]+)\*/ },
-                { type: 'italic', regex: /^([_])([^_]+)\1/ }, // simple _italic_
-                { type: 'monospace', regex: /^`([^`]+)`/ },
-                { type: 'attribute', regex: /^(:[a-zA-Z0-9_-]+:|{[a-zA-Z0-9_-]+})/ },
-                { type: 'link', regex: /^(https?:\/\/[^\s\[]+|link:[^\s\[]+|image:[^\s\[]+)(\[[^\]]*\])?/ },
-                { type: 'macro', regex: /^(btn|kbd|menu|icon):\[[^\]]*\]/ }
-            ];
-
             let matched = false;
-            for (const p of patterns) {
+            for (const p of AsciiDocTokenizer.PATTERNS) {
                 // @ts-ignore
                 const match = remaining.match(p.regex);
                 if (match) {

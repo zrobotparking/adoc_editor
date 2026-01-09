@@ -1,8 +1,8 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 
 interface UseHistoryResult<T> {
   state: T;
-  set: (newState: T, shouldCommit?: boolean) => void;
+  set: (newState: T | ((prev: T) => T), shouldCommit?: boolean) => void;
   undo: () => void;
   redo: () => void;
   canUndo: boolean;
@@ -21,7 +21,13 @@ export function useHistory<T>(initialState: T, debounceTime: number = 2000): Use
   });
 
   const [internalState, setInternalState] = useState<T>(initialState);
+  const stateRef = useRef(initialState);
   const timeoutRef = useRef<number | null>(null);
+  
+  // Sync ref with state
+  useEffect(() => {
+      stateRef.current = internalState;
+  }, [internalState]);
 
   const canUndo = history.past.length > 0;
   const canRedo = history.future.length > 0;
@@ -71,7 +77,12 @@ export function useHistory<T>(initialState: T, debounceTime: number = 2000): Use
     });
   }, [canRedo]);
 
-  const set = useCallback((newState: T, shouldCommit: boolean = false) => {
+  const set = useCallback((newStateOrFn: T | ((prev: T) => T), shouldCommit: boolean = false) => {
+    // Resolve new state using ref (stable)
+    const newState = typeof newStateOrFn === 'function' 
+        ? (newStateOrFn as (prev: T) => T)(stateRef.current) 
+        : newStateOrFn;
+
     // Update UI immediately (controlled component needs this)
     setInternalState(newState);
 

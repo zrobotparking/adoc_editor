@@ -138,44 +138,60 @@ export const SourceEditor = forwardRef<SourceEditorHandle, SourceEditorProps>(({
     };
 
     // Tokenizer
+    const tokenizer = useMemo(() => new AsciiDocTokenizer(), []);
+    
     const tokens = useMemo(() => {
-        const tokenizer = new AsciiDocTokenizer();
-        return tokenizer.tokenize(value);
-    }, [value]);
+        // console.time('Tokenizer');
+        const res = tokenizer.tokenize(value);
+        // console.timeEnd('Tokenizer');
+        return res;
+    }, [value, tokenizer]);
 
+    const [scrollTop, setScrollTop] = React.useState(0);
+    const [editorHeight, setEditorHeight] = React.useState(0);
+
+    // Sync scroll and update virtualization state
     const handleScroll = () => {
+        // ... (existing code, skipped for brevity in replace block if possible, but replace_file_content needs contiguous)
+        // I will just keep handleScroll as is but I must include it in the block if it lies between target points
+        // Actually I can define target points carefully.
+    
         if (textareaRef.current) {
-            const scrollTop = textareaRef.current.scrollTop;
+            const currentScrollTop = textareaRef.current.scrollTop;
+            const clientHeight = textareaRef.current.clientHeight;
+            // ... (sync logic) ...
+            
+            // Just copying existing logic briefly to match structure
+            // NOTE: I will use the existing handleScroll implementation in the replacement to avoid breaking it
             const scrollLeft = textareaRef.current.scrollLeft;
             const scrollHeight = textareaRef.current.scrollHeight;
-            const clientHeight = textareaRef.current.clientHeight;
-            
-            // Sync Gutter
-            if (gutterRef.current) {
-                gutterRef.current.scrollTop = scrollTop;
-            }
 
-            // Sync Overlay
+            setScrollTop(currentScrollTop);
+            if (editorHeight !== clientHeight) setEditorHeight(clientHeight);
+            
+            if (gutterRef.current) gutterRef.current.scrollTop = currentScrollTop;
             if (overlayRef.current) {
-                overlayRef.current.scrollTop = scrollTop;
+                overlayRef.current.scrollTop = currentScrollTop;
                 overlayRef.current.scrollLeft = scrollLeft;
             }
-
-            // Sync Highlight Layer
             if (highlightLayerRef.current) {
-                highlightLayerRef.current.scrollTop = scrollTop;
+                highlightLayerRef.current.scrollTop = currentScrollTop;
                 highlightLayerRef.current.scrollLeft = scrollLeft;
             }
-            
-            // Notify parent for preview sync
             if (onScroll) {
-                const ratio = scrollTop / (scrollHeight - clientHeight || 1);
-                onScroll(scrollTop, ratio);
+                const ratio = currentScrollTop / (scrollHeight - clientHeight || 1);
+                onScroll(currentScrollTop, ratio);
             }
         }
     };
 
+    console.time('Line Split');
     const lines = value.split('\n');
+    console.timeEnd('Line Split');
+    
+    // Line offsets no longer needed for rendering, but might be needed for other things?
+    // Not used elsewhere. Removing.
+
     const errorMap = useMemo(() => {
         const map = new Map<number, LintError[]>();
         lintErrors.forEach(err => {
@@ -187,55 +203,137 @@ export const SourceEditor = forwardRef<SourceEditorHandle, SourceEditorProps>(({
 
     const handleSelect = () => {
         if (textareaRef.current) {
+            console.time('Handle Select');
             const { selectionStart, selectionEnd, value } = textareaRef.current;
             const beforeStart = value.substring(0, selectionStart);
+            // const beforeEnd = value.substring(0, selectionEnd); // Not strictly needed for single cursor?
+            // Wait, logic says:
             const beforeEnd = value.substring(0, selectionEnd);
             const selectedText = value.substring(selectionStart, selectionEnd);
             
+            // COSTLY: Splitting entire string just to find line number
+            console.time('Calc Line Num');
             const startLine = beforeStart.split('\n').length - 1;
             const endLine = beforeEnd.split('\n').length - 1;
+            console.timeEnd('Calc Line Num');
            
             if (onSelectionChange) {
                 onSelectionChange({ startLine, endLine, text: selectedText });
             }
+            console.timeEnd('Handle Select');
         }
     };
 
-    // Construct Overlay HTML
+    // Virtualized Overlay Rendering
     const renderOverlay = () => {
-        let lastIndex = 0;
-        const elements: React.ReactNode[] = [];
+        const rowHeight = 21;
+        const startNode = Math.floor(scrollTop / rowHeight);
+        const visibleNodeCount = Math.ceil((editorHeight || 500) / rowHeight);
         
-        // Fix: tokens is an array, iterate directly
-        tokens.forEach((token, idx) => {
-             if (token.start > lastIndex) {
-                 elements.push(<span key={`gap-${idx}`} style={{color: 'var(--text-editor)'}}>{value.substring(lastIndex, token.start)}</span>);
-             }
-
-             const colorVar = `var(--syntax-${token.type})`;
-             let style: React.CSSProperties = { color: colorVar };
-             if (token.type === 'bold' || token.type === 'header') style.fontWeight = 'bold';
-             if (token.type === 'italic') style.fontStyle = 'italic';
-             if (token.type === 'header') style.textDecoration = 'none';
-
-             elements.push(
-                 <span key={idx} style={style}>
-                     {token.text}
-                 </span>
-             );
-
-             lastIndex = token.end;
-        });
+        // render buffer
+        const startLine = Math.max(0, startNode - 5);
+        const endLine = Math.min(lines.length, startNode + visibleNodeCount + 5);
         
-        if (lastIndex < value.length) {
-             elements.push(<span key="tail" style={{color: 'var(--text-editor)'}}>{value.substring(lastIndex)}</span>);
+        const renderedLines: React.ReactNode[] = [];
+        
+        // Push top padding
+        if (startLine > 0) {
+            renderedLines.push(<div key="spacer-top" style={{ height: `${startLine * rowHeight}px` }} />);
         }
 
-        if (value.endsWith('\n')) {
-            elements.push(<br key="br-end" />);
+        for (let i = startLine; i < endLine; i++) {
+            const lineTokens = tokens[i] || [];
+            const lineText = lines[i];
+            
+            const lineElements: React.ReactNode[] = [];
+            let lastIndex = 0; // Relative to line start
+
+            lineTokens.forEach((token, tIdx) => {
+                // Gap
+                if (token.start > lastIndex) {
+                    lineElements.push(
+                        <span key={`gap-${tIdx}`} style={{color: 'var(--text-editor)'}}>
+                            {lineText.substring(lastIndex, token.start)}
+                        </span>
+                    );
+                }
+
+                // Token
+                const colorVar = `var(--syntax-${token.type})`;
+                let style: React.CSSProperties = { color: colorVar };
+                if (token.type === 'bold' || token.type === 'header') style.fontWeight = 'bold';
+                if (token.type === 'italic') style.fontStyle = 'italic';
+                if (token.type === 'header') style.textDecoration = 'none';
+
+                lineElements.push(
+                    <span key={tIdx} style={style}>
+                        {token.text}
+                    </span>
+                );
+
+                lastIndex = token.end;
+            });
+            
+            // Tail of line
+            if (lastIndex < lineText.length) {
+                 lineElements.push(
+                     <span key="tail" style={{color: 'var(--text-editor)'}}>
+                         {lineText.substring(lastIndex)}
+                     </span>
+                 );
+            }
+            
+            renderedLines.push(
+                <div key={i} style={{ height: '21px', whiteSpace: 'pre' }}>
+                    {lineElements}
+                </div>
+            );
+        }
+        
+        // Push bottom padding
+        if (endLine < lines.length) {
+            renderedLines.push(<div key="spacer-bottom" style={{ height: `${(lines.length - endLine) * rowHeight}px` }} />);
         }
 
-        return elements;
+        return renderedLines;
+    };
+
+    // Virtualized Gutter Rendering
+    const renderGutter = () => {
+        const rowHeight = 21;
+        const startNode = Math.floor(scrollTop / rowHeight);
+        const visibleNodeCount = Math.ceil((editorHeight || 500) / rowHeight);
+        
+        const startLine = Math.max(0, startNode - 5);
+        const endLine = Math.min(lines.length, startNode + visibleNodeCount + 5);
+        
+        const renderedItems: React.ReactNode[] = [];
+
+        // Spacer Top
+        if (startLine > 0) {
+            renderedItems.push(<div key="spacer-top" style={{ height: `${startLine * rowHeight}px` }} />);
+        }
+
+        for (let i = startLine; i < endLine; i++) {
+            const hasError = errorMap.has(i);
+            renderedItems.push(
+                <div key={i} className="relative h-[21px]">
+                    {hasError && (
+                        <span className="absolute left-0 text-yellow-500 font-bold" title={errorMap.get(i)?.[0].message}>
+                            !
+                        </span>
+                    )}
+                    {i + 1}
+                </div>
+            );
+        }
+
+        // Spacer Bottom
+        if (endLine < lines.length) {
+            renderedItems.push(<div key="spacer-bottom" style={{ height: `${(lines.length - endLine) * rowHeight}px` }} />);
+        }
+
+        return renderedItems;
     };
 
     // Calculate total height for the highlight layer to ensure it scrolls correctly
@@ -256,19 +354,7 @@ export const SourceEditor = forwardRef<SourceEditorHandle, SourceEditorProps>(({
                     className="w-12 bg-editor-gutter text-editor-gutter-text text-right font-mono text-sm leading-relaxed p-4 pr-2 select-none overflow-hidden border-r border-explorer-border"
                     style={{ lineHeight: '21px', paddingTop: '16px' }}
                 >
-                    {lines.map((_, i) => {
-                        const hasError = errorMap.has(i);
-                        return (
-                            <div key={i} className="relative h-[21px]">
-                                {hasError && (
-                                    <span className="absolute left-0 text-yellow-500 font-bold" title={errorMap.get(i)?.[0].message}>
-                                        !
-                                    </span>
-                                )}
-                                {i + 1}
-                            </div>
-                        );
-                    })}
+                    {renderGutter()}
                 </div>
 
                 {/* Editor Container - Stacked */}
@@ -326,14 +412,10 @@ export const SourceEditor = forwardRef<SourceEditorHandle, SourceEditorProps>(({
                         }}
                         value={value}
                         onChange={(e) => {
+                            console.time('TextArea Change Handler');
                             const val = e.target.value;
                             
                             // Smart Undo Logic
-                            // We attempt to detect "break points" in typing:
-                            // 1. Newlines (Enter)
-                            // 2. Spaces
-                            // 3. Special punctuation
-                            
                             let immediate = false;
                             const nativeEvent = e.nativeEvent as InputEvent;
                             
@@ -347,17 +429,18 @@ export const SourceEditor = forwardRef<SourceEditorHandle, SourceEditorProps>(({
                                 }
                             }
                             
+                            console.time('Prop onChange Call');
                             onChange(val, immediate);
+                            console.timeEnd('Prop onChange Call');
+                            console.timeEnd('TextArea Change Handler');
                         }}
                         onScroll={handleScroll}
                         onSelect={handleSelect}
-                        onClick={handleSelect} // Clicks usually just update selection, handled by handleSelect. If we want click to *commit* pending text, we'd need to track pending. 
-                        // Current useHistory 'debounce' fallback handles the "stopped typing and clicked" case eventually (2s).
-                        // If user wants Click to be IMMEDIATE commit of pending text, we'd need a separate mechanism.
-                        // Assuming "Action" based (Type -> Click -> Undo should undo the typing) is handled by the natural flow or debounce.
+                        onClick={handleSelect}
                         onKeyUp={handleSelect}
                         spellCheck={false}
                     />
+
                 </div>
             </div>
             

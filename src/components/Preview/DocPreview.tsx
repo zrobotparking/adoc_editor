@@ -20,7 +20,8 @@ interface DocPreviewProps {
     files?: Record<string, string>;
 }
 
-export const DocPreview = forwardRef<DocPreviewHandle, DocPreviewProps>(({ 
+// Memoized to prevent re-renders when deferred props haven't changed
+export const DocPreview = React.memo(forwardRef<DocPreviewHandle, DocPreviewProps>(({ 
     blocks, 
     onEditBlock, 
     onUpdateBlock,
@@ -31,6 +32,7 @@ export const DocPreview = forwardRef<DocPreviewHandle, DocPreviewProps>(({
     onScroll,
     files
 }, ref) => {
+    // ... implementation ...
     const containerRef = useRef<HTMLDivElement>(null);
 
     useImperativeHandle(ref, () => ({
@@ -79,6 +81,6 @@ export const DocPreview = forwardRef<DocPreviewHandle, DocPreviewProps>(({
             ))}
         </div>
     );
-});
+}));
 
 DocPreview.displayName = 'DocPreview';
