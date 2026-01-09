@@ -152,23 +152,21 @@ export const SourceEditor = forwardRef<SourceEditorHandle, SourceEditorProps>(({
 
     // Sync scroll and update virtualization state
     const handleScroll = () => {
-        // ... (existing code, skipped for brevity in replace block if possible, but replace_file_content needs contiguous)
-        // I will just keep handleScroll as is but I must include it in the block if it lies between target points
-        // Actually I can define target points carefully.
-    
         if (textareaRef.current) {
             const currentScrollTop = textareaRef.current.scrollTop;
             const clientHeight = textareaRef.current.clientHeight;
-            // ... (sync logic) ...
-            
-            // Just copying existing logic briefly to match structure
-            // NOTE: I will use the existing handleScroll implementation in the replacement to avoid breaking it
             const scrollLeft = textareaRef.current.scrollLeft;
             const scrollHeight = textareaRef.current.scrollHeight;
 
+            // Standard React State Update ensures synchronization accuracy
+            // Using standard approach as requested (no throttling/conditional updates)
             setScrollTop(currentScrollTop);
-            if (editorHeight !== clientHeight) setEditorHeight(clientHeight);
             
+            if (editorHeight !== clientHeight) {
+                setEditorHeight(clientHeight);
+            }
+            
+            // Sync other layers natively for smoothness (still good practice for overlays)
             if (gutterRef.current) gutterRef.current.scrollTop = currentScrollTop;
             if (overlayRef.current) {
                 overlayRef.current.scrollTop = currentScrollTop;
@@ -178,6 +176,7 @@ export const SourceEditor = forwardRef<SourceEditorHandle, SourceEditorProps>(({
                 highlightLayerRef.current.scrollTop = currentScrollTop;
                 highlightLayerRef.current.scrollLeft = scrollLeft;
             }
+            
             if (onScroll) {
                 const ratio = currentScrollTop / (scrollHeight - clientHeight || 1);
                 onScroll(currentScrollTop, ratio);
@@ -341,6 +340,16 @@ export const SourceEditor = forwardRef<SourceEditorHandle, SourceEditorProps>(({
     // Adding extra buffer to be safe
     const contentHeight = Math.max((lines.length * 21) + 32, 100); 
 
+    // Font settings to ensure perfect alignment between textarea and overlay
+    const editorStyle: React.CSSProperties = {
+        fontFamily: 'Menlo, Monaco, Consolas, "Courier New", monospace',
+        fontSize: '14px',
+        lineHeight: '21px',
+        letterSpacing: '0px',
+        fontVariantLigatures: 'none',
+        boxSizing: 'border-box',
+    };
+
     return (
         <div className="flex flex-col h-full bg-editor-bg border border-gray-700 rounded-lg overflow-hidden">
              {/* Toolbar */}
@@ -352,13 +361,18 @@ export const SourceEditor = forwardRef<SourceEditorHandle, SourceEditorProps>(({
                 <div 
                     ref={gutterRef}
                     className="w-12 bg-editor-gutter text-editor-gutter-text text-right font-mono text-sm leading-relaxed p-4 pr-2 select-none overflow-hidden border-r border-explorer-border"
-                    style={{ lineHeight: '21px', paddingTop: '16px' }}
+                    style={{ 
+                        ...editorStyle,
+                        fontFamily: 'monospace', // Gutter can stay default mono or match
+                        width: '48px',
+                        paddingTop: '16px' 
+                    }}
                 >
                     {renderGutter()}
                 </div>
 
                 {/* Editor Container - Stacked */}
-                <div className="flex-grow relative font-mono text-sm leading-relaxed" style={{ fontSize: '14px', lineHeight: '21px' }}>
+                <div className="flex-grow relative" style={editorStyle}>
                     
                     {/* Block Highlight Layer */}
                     <div
@@ -393,8 +407,7 @@ export const SourceEditor = forwardRef<SourceEditorHandle, SourceEditorProps>(({
                         aria-hidden="true"
                         className="absolute inset-0 p-4 m-0 overflow-hidden whitespace-pre pointer-events-none bg-transparent"
                         style={{ 
-                            fontFamily: 'monospace',
-                            boxSizing: 'border-box'
+                            ...editorStyle
                         }}
                     >
                         {renderOverlay()}
@@ -405,14 +418,12 @@ export const SourceEditor = forwardRef<SourceEditorHandle, SourceEditorProps>(({
                         ref={textareaRef}
                         className="absolute inset-0 w-full h-full p-4 m-0 resize-none outline-none whitespace-pre bg-transparent text-transparent caret-editor-text"
                         style={{ 
-                            fontFamily: 'monospace',
+                            ...editorStyle,
                             caretColor: 'var(--text-secondary)',
-                            zIndex: 1,
-                            boxSizing: 'border-box'
+                            zIndex: 1
                         }}
                         value={value}
                         onChange={(e) => {
-                            console.time('TextArea Change Handler');
                             const val = e.target.value;
                             
                             // Smart Undo Logic
@@ -429,10 +440,7 @@ export const SourceEditor = forwardRef<SourceEditorHandle, SourceEditorProps>(({
                                 }
                             }
                             
-                            console.time('Prop onChange Call');
                             onChange(val, immediate);
-                            console.timeEnd('Prop onChange Call');
-                            console.timeEnd('TextArea Change Handler');
                         }}
                         onScroll={handleScroll}
                         onSelect={handleSelect}

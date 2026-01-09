@@ -107,8 +107,12 @@ function App() {
   const sourceEditorRef = React.useRef<SourceEditorHandle>(null);
   
   // Mutex for loop prevention
-  const isScrollingRef = React.useRef(false);
+  const isSyncingFromSource = React.useRef(false);
+  const isSyncingFromPreview = React.useRef(false);
+  const syncTimeoutRef = React.useRef<number | null>(null);
 
+  // Scroll Handlers
+  
   // Apply Theme Variables
   useEffect(() => {
     applyTheme(theme);
@@ -118,9 +122,6 @@ function App() {
   const handleBlockUpdate = useCallback((id: string, updatedData: any) => {
       if (!activeFile) return;
       
-      // Note: blocks here are from deferred content, but IDs should be stable enough?
-      // Ideally we should re-parse current content to find block? 
-      // Or just trust the ID from the UI.
       const targetBlock = blocks.find(b => b.id === id);
       if (!targetBlock) return;
       
@@ -159,29 +160,35 @@ function App() {
       setActiveBlockId(null);
   }, []);
 
-  // Scroll Handlers
-  
   // Source -> Preview
   const handleEditorScroll = useCallback((scrollTop: number, ratio: number) => {
+      // If we are currently processing a scroll initiated by Preview, ignore this echo
+      if (isSyncingFromPreview.current) return;
+
       if (syncSourceToPreview && previewRef.current) {
-          if (!isScrollingRef.current) {
-               isScrollingRef.current = true;
-               previewRef.current.scrollToRatio(ratio);
-               
-               // Debounce/Timeout reset
-               setTimeout(() => { isScrollingRef.current = false; }, 50);
-          }
+           isSyncingFromSource.current = true;
+           previewRef.current.scrollToRatio(ratio);
+           
+           if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
+           syncTimeoutRef.current = window.setTimeout(() => { 
+               isSyncingFromSource.current = false; 
+           }, 100);
       }
   }, [syncSourceToPreview]);
 
   // Preview -> Source
   const handlePreviewScroll = useCallback((scrollTop: number, ratio: number) => {
+      // If we are currently processing a scroll initiated by Source, ignore this echo
+      if (isSyncingFromSource.current) return;
+
       if (syncPreviewToSource && sourceEditorRef.current) {
-          if (!isScrollingRef.current) {
-               isScrollingRef.current = true;
-               sourceEditorRef.current.scrollTo(ratio);
-               setTimeout(() => { isScrollingRef.current = false; }, 50);
-          }
+           isSyncingFromPreview.current = true;
+           sourceEditorRef.current.scrollTo(ratio);
+           
+           if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
+           syncTimeoutRef.current = window.setTimeout(() => { 
+               isSyncingFromPreview.current = false; 
+           }, 100);
       }
   }, [syncPreviewToSource]);
 
@@ -223,6 +230,8 @@ function App() {
           .filter(b => b.startLine <= endLine && b.endLine >= startLine)
           .map(b => b.id);
       
+      // console.log('[Selection]', { ids, text });
+
       setHighlightedBlockIds(prevIds => {
           if (prevIds.length === ids.length && prevIds.every((id, i) => id === ids[i])) {
               return prevIds;
@@ -233,11 +242,17 @@ function App() {
 
       // Auto-reveal block in preview
       if (ids.length > 0 && previewRef.current && autoReveal) {
-           if (!isScrollingRef.current) {
-                isScrollingRef.current = true;
+           // If we are currently processing a scroll initiated by Preview, ignore this (unlikely to happen during selection but safe)
+           // Also check if we are already syncing to prevent re-triggering
+           if (!isSyncingFromPreview.current && !isSyncingFromSource.current) {
+                isSyncingFromSource.current = true;
                 previewRef.current.scrollToBlock(ids[0]);
+                
                 // Give it sufficient time for smooth scroll to complete (prevent feedback loop)
-                setTimeout(() => { isScrollingRef.current = false; }, 1200);
+                if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
+                syncTimeoutRef.current = window.setTimeout(() => { 
+                    isSyncingFromSource.current = false; 
+                }, 1000);
            }
       }
   }, [blocks, autoReveal]);
