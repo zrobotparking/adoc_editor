@@ -103,14 +103,53 @@ export const VisualTableEditor: React.FC<VisualTableEditorProps> = ({ data, onUp
     };
 
     const canSplit = (() => {
-        if (!activeCell) return false;
-        const cell = data.rows.find(r => r.id === activeCell.rowId)?.cells.find(c => c.id === activeCell.cellId);
-        return cell ? (cell.rowSpan > 1 || cell.colSpan > 1) : false;
+        // 1. Check Active Cell (Focus)
+        if (activeCell) {
+            // Robust lookup across all rows
+            for (const row of data.rows) {
+                const cell = row.cells.find(c => c.id === activeCell.cellId);
+                if (cell && (cell.rowSpan > 1 || cell.colSpan > 1)) return true;
+            }
+        }
+
+        // 2. Check Selection (Click)
+        // If we selected a single grid slot (start==end), check if it contains a merged cell
+        if (selectionStart && selectionEnd && selectionStart.row === selectionEnd.row && selectionStart.col === selectionEnd.col) {
+             const gCell = grid[selectionStart.row]?.[selectionStart.col];
+             // Note: If we clicked a covered cell, VisualTableEditor only renders event handlers on the Origin cell?
+             // No, EditableCell renders only for Origin. Covered cells aren't rendered or are empty <td>.
+             // If user clicks empty covered area, `handleMouseDown` might not fire if no handler?
+             // Actually VisualTableEditor renders `null` for covered (line 135).
+             // So user can only click Origin or normal cells.
+             
+             if (gCell && gCell.cell) {
+                 return gCell.cell.rowSpan > 1 || gCell.cell.colSpan > 1;
+             }
+        }
+        
+        return false;
     })();
 
     const splitCurrent = () => {
-        if (!canSplit || !onUpdate || !activeCell) return;
-        const updatedTable = TableUtils.splitCell(data, activeCell.cellId);
+        if (!canSplit || !onUpdate) return;
+        
+        let targetCellId = null;
+        
+        // 1. Try Active Cell
+        if (activeCell) {
+            targetCellId = activeCell.cellId;
+        } 
+        // 2. Try Selection (if single cell selected)
+        else if (selectionStart && selectionEnd && selectionStart.row === selectionEnd.row && selectionStart.col === selectionEnd.col) {
+             const gCell = grid[selectionStart.row]?.[selectionStart.col];
+             if (gCell && gCell.cell) {
+                 targetCellId = gCell.cell.id;
+             }
+        }
+        
+        if (!targetCellId) return;
+
+        const updatedTable = TableUtils.splitCell(data, targetCellId);
         onUpdate(updatedTable);
     };
 

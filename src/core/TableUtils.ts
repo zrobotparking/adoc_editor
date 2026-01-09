@@ -103,10 +103,110 @@ export class TableUtils {
       const grid = this.buildGrid(table);
       
       // Normalize bounds
-      const minRow = Math.min(startRow, endRow);
-      const maxRow = Math.max(startRow, endRow);
-      const minCol = Math.min(startCol, endCol);
-      const maxCol = Math.max(startCol, endCol);
+      let minRow = Math.min(startRow, endRow);
+      let maxRow = Math.max(startRow, endRow);
+      let minCol = Math.min(startCol, endCol);
+      let maxCol = Math.max(startCol, endCol);
+      
+      // Expand bounds to fully encompass any cell that is partially selected
+      // We loop until stable because expanding to include one cell might touch another.
+      let changed = true;
+      while (changed) {
+          changed = false;
+          for (let r = minRow; r <= maxRow; r++) {
+              for (let c = minCol; c <= maxCol; c++) {
+                  const gCell = grid[r]?.[c];
+                  if (!gCell) continue;
+                  
+                  // If it's a covered cell, we must include its origin
+                  if (gCell.isCovered && gCell.originCell) {
+                      // Find origin coordinates (We can't easily know them from gCell unless we store them or search)
+                      // But wait, GridCell should ideally store 'originRow', 'originCol'?
+                      // Currently it stores `originCell` (ref).
+                      // Search grid for origin? Or update grid to store coords?
+                      // We can search the grid for the originCellRef.
+                      // Optimization: Let's search 'up and left' from current pos since origin is always top-left.
+                      // Or just scan the `rows`?
+                      
+                      // Better: Let's find the origin from the grid.
+                      // Since we are inside the box, let's look at the origin.
+                      // Actually, if we hit a covered cell, its origin might be OUTSIDE the box.
+                      // We need to find that origin and expand minRow/minCol.
+                      
+                      // Brute force search for origin in grid (reliable)
+                      // Or add originRow/originCol to GridCell in buildGrid? (Cleaner but changes interface)
+                      // Let's search for now.
+                      let originFound = false;
+                      let or = r;
+                      let oc = c;
+                      
+                      // Scan backwards to find the Origin (which has cell === gCell.originCell)
+                      // Heuristic: Origin is <= r and <= c.
+                      // But we don't know exactly where. 
+                      // Let's cheat: We know the cell instance.
+                      if (gCell.originCell) {
+                           // Iterate grid to find coordinates of gCell.originCell
+                           // This is O(GridSize) but grid is small.
+                           for (let gr = 0; gr <= r; gr++) {
+                               for (let gc = 0; gc < grid[gr].length; gc++) {
+                                    if (grid[gr][gc].cell === gCell.originCell && !grid[gr][gc].isCovered) {
+                                        or = gr;
+                                        oc = gc;
+                                        originFound = true;
+                                        break;
+                                    }
+                               }
+                               if (originFound) break;
+                           }
+                      }
+                      
+                      if (or < minRow) { minRow = or; changed = true; }
+                      if (oc < minCol) { minCol = oc; changed = true; }
+                  }
+                  
+                  // Now check the span of the cell (Origin or the one we just found/verified)
+                  // The cell at (r,c) (which might be covered, but we care about the "Active Unit" at this slot)
+                  // If it's covered, we looked up Origin.
+                  // If it's origin, we check its span.
+                  
+                  // Simplification:
+                  // For every visual slot (r,c) in range:
+                  // 1. Identify the effective cell at this slot (Origin).
+                  // 2. Ensure the selection box covers this effective cell's entire span (rowSpan, colSpan).
+                  
+                  // Let's resolve the effective cell again
+                  let effectiveOrigin = gCell;
+                  if (gCell.isCovered && gCell.originCell) {
+                       // We found coordinates 'or', 'oc' above? 
+                       // Reuse that search logic?
+                       // Let's encapsulate finding origin.
+                       // Or just continue relying on the "Expand Min" logic above, 
+                       // and the "Expand Max" logic below.
+                  }
+                  
+                  // If we encountered a COVERED cell, we expanded MIN bounds to include origin.
+                  // Now we must ensure MAX bounds include the span of that origin.
+                  
+                  const cell = gCell.isCovered ? gCell.originCell : gCell.cell;
+                  if (cell) {
+                      // We need the coordinates of this cell's origin to calculate extent.
+                      // If gCell is origin, coords are (r,c).
+                      // If gCell is covered, coords are outside (or inside) - we expanded min to include them.
+                      // So if we iterate from refreshed minRow/minCol?
+                      // The outer loop `while(changed)` handles re-checking.
+                      
+                      // We just need to ensure valid logic:
+                      // If we are at an origin (r,c), check if r+rowSpan > maxRow or c+colSpan > maxCol.
+                      if (!gCell.isCovered) {
+                          const rs = cell.rowSpan || 1;
+                          const cs = cell.colSpan || 1;
+                          if (r + rs - 1 > maxRow) { maxRow = r + rs - 1; changed = true; }
+                          if (c + cs - 1 > maxCol) { maxCol = c + cs - 1; changed = true; }
+                      }
+                  }
+              }
+          }
+      }
       
       // Get Origin Cell at top-left
       const originGridCell = grid[minRow] && grid[minRow][minCol];
