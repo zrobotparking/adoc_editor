@@ -14,7 +14,9 @@ export class BasicTableSerializer implements TableSerializer {
     // So here we just return the |=== block content or the full block?
     // The previous code returned `|===\n...|===`.
     
-    if (table.metadata && table.metadata.cols) {
+    if (table.attributes && table.attributes.length > 0) {
+        output += table.attributes.join('\n') + '\n';
+    } else if (table.metadata && table.metadata.cols) {
         output += `[cols="${table.metadata.cols}"]\n`;
     }
     // Note: PreviewBlock might double-add attributes if we do it here. 

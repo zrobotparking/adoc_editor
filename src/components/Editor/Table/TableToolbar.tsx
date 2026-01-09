@@ -6,6 +6,9 @@ interface TableToolbarProps {
     onInsertCol: (direction: 'left' | 'right') => void;
     onMerge: () => void;
     onSplit: () => void;
+    
+    onDeleteRow: () => void;
+    onDeleteCol: () => void;
 
     // State for Enabling/Disabling
     canInsert: boolean;
@@ -18,6 +21,8 @@ export const TableToolbar: React.FC<TableToolbarProps> = ({
     onInsertCol,
     onMerge,
     onSplit,
+    onDeleteRow,
+    onDeleteCol,
     canInsert,
     canMerge,
     canSplit
@@ -38,6 +43,18 @@ export const TableToolbar: React.FC<TableToolbarProps> = ({
                 </button>
                 <button onClick={() => onInsertCol('right')} disabled={!canInsert} className="btn-icon" title="Col Right">
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><rect x="6" y="2" width="4" height="12" stroke="currentColor" fill="none"/><path d="M14 8L11 5V11L14 8Z" /></svg>
+                </button>
+            </div>
+            
+            <div className="w-px bg-explorer-border mx-1 h-4"></div>
+
+            {/* Delete Buttons */}
+            <div className="flex items-center space-x-1">
+                <button onClick={onDeleteRow} disabled={!canInsert} className="btn-icon text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20" title="Delete Row">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M2 5v1h12V5H2zm2-2h8v1H4V3zm1 4h2v7H5V7zm4 0h2v7H9V7z" /></svg>
+                </button>
+                <button onClick={onDeleteCol} disabled={!canInsert} className="btn-icon text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20" title="Delete Column">
+                     <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M5 2h1v12H5V2zm-2 2h8v1H3V4zm4 1h7v2H7V5zm0 4h7v2H7V9z" transform="rotate(90 8 8)"/></svg>
                 </button>
             </div>
             

@@ -57,35 +57,16 @@ export const VisualTableEditor: React.FC<VisualTableEditorProps> = ({ data, onUp
     
     const insertRow = (direction: 'above' | 'below') => {
         if (!onUpdate || !activeCell) return;
-        const newRowId = generateId();
-        const gridWidth = grid[0]?.length || 0;
-        const newCells = Array(gridWidth).fill(null).map(() => ({
-            id: generateId(),
-            content: '',
-            rowSpan: 1,
-            colSpan: 1
-        }));
-        const newRow = { id: newRowId, cells: newCells };
         const insertIndex = direction === 'above' ? activeCell.rowIndex : activeCell.rowIndex + 1;
-        const newRows = [...data.rows];
-        newRows.splice(insertIndex, 0, newRow);
-        onUpdate({ ...data, rows: newRows });
+        const updatedTable = TableUtils.insertRow(data, insertIndex);
+        onUpdate(updatedTable);
     };
 
     const insertCol = (direction: 'left' | 'right') => {
          if (!onUpdate || !activeCell) return;
          const insertIndex = direction === 'left' ? activeCell.colIndex : activeCell.colIndex + 1;
-         const newRows = data.rows.map(row => {
-             const newCells = [...row.cells];
-             newCells.splice(insertIndex, 0, {
-                 id: generateId(),
-                 content: '',
-                 rowSpan: 1,
-                 colSpan: 1
-             });
-             return { ...row, cells: newCells };
-         });
-         onUpdate({ ...data, rows: newRows });
+         const updatedTable = TableUtils.insertCol(data, insertIndex);
+         onUpdate(updatedTable);
     };
 
     const mergeSelected = () => {
@@ -160,6 +141,20 @@ export const VisualTableEditor: React.FC<VisualTableEditorProps> = ({ data, onUp
                 onInsertCol={insertCol}
                 onMerge={mergeSelected}
                 onSplit={splitCurrent}
+                onDeleteRow={() => {
+                    if (onUpdate && activeCell) {
+                         const updatedTable = TableUtils.deleteRow(data, activeCell.rowIndex);
+                         onUpdate(updatedTable);
+                         setActiveCell(null); // Reset focus
+                    }
+                }}
+                onDeleteCol={() => {
+                     if (onUpdate && activeCell) {
+                         const updatedTable = TableUtils.deleteCol(data, activeCell.colIndex);
+                         onUpdate(updatedTable);
+                         setActiveCell(null);
+                     }
+                }}
                 canInsert={!!activeCell}
                 canMerge={!!canMerge}
                 canSplit={canSplit}

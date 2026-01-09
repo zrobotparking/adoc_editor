@@ -17,6 +17,7 @@ export interface Table {
     cols?: string; // e.g., "1,1,2"
     options?: string; // e.g., "header,footer"
   };
+  attributes?: string[]; // Raw attribute lines (e.g. ['[cols="...", options="..."]', '.Title'])
 }
 
 export interface TableBlock {

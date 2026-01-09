@@ -28,6 +28,8 @@ export class BasicPipeParser implements TableParser {
                     
                     // 0. Check for Metadata (Attributes/Title) in pending text
                     currentTableAttributes = [];
+                    let attributesStartLine = -1;
+
                     if (textContentLines.length > 0) {
                         // Scan backwards for metadata
                         let cutoffIndex = textContentLines.length;
@@ -43,6 +45,11 @@ export class BasicPipeParser implements TableParser {
                         
                         if (cutoffIndex < textContentLines.length) {
                              currentTableAttributes = textContentLines.slice(cutoffIndex);
+                             // Calculate the line number where attributes start
+                             // textStartLine is the start of the whole text block
+                             // The attributes start at cutoffIndex relative to textStartLine
+                             attributesStartLine = textStartLine + cutoffIndex;
+                             
                              textContentLines = textContentLines.slice(0, cutoffIndex);
                         }
                     }
@@ -62,7 +69,8 @@ export class BasicPipeParser implements TableParser {
 
                     // 2. Start tracking table
                     inTable = true;
-                    tableStartLine = i;
+                    // If we found attributes, the table block conceptually starts there
+                    tableStartLine = attributesStartLine !== -1 ? attributesStartLine : i;
                     tableContentLines = [];
                 } else {
                     // --- End of a table ---
@@ -318,7 +326,11 @@ export class BasicPipeParser implements TableParser {
          
          return {
              id: `table-${blockIndex}`,
-             rows: rows.filter(r => r.cells.length > 0) // cleanup empty tail rows
+             rows: rows.filter(r => r.cells.length > 0), // cleanup empty tail rows
+             metadata: {
+                 cols: colsAttr ? colsAttr.match(/cols="?([^"]+)"?/)?.[1] : undefined
+             },
+             attributes: attributes
          };
     }
 }
