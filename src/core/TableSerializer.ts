@@ -6,38 +6,33 @@ export class BasicTableSerializer implements TableSerializer {
       return '';
     }
 
-    let output = '|===\n';
-
-    table.rows.forEach((row) => {
-      row.cells.forEach((cell) => {
-        // Basic serialization: | Content
-        output += `| ${cell.content} `;
-      });
-      output += '\n'; // Newline after each row (or could be after each cell depending on style)
-      // For now, let's keep it simple: 
-      // | Cell 1 | Cell 2
-      // becomes:
-      // | Cell 1 | Cell 2
-      // But we need to handle the newlines properly
-    });
-
-    // Re-doing logic for standard pipe syntax
-    /*
-      | Col 1 | Col 2
-      | Val 1 | Val 2
-    */
+    let output = '';
     
-    // Reset output
-    output = '|===\n';
+    // Add Attributes if available in table metadata (Currently Table interface has limited metadata)
+    // But PreviewBlock handles the attributes separately before passing to convert?
+    // PreviewBlock.tsx: lines 87-98 -> It creates serializer, gets adoc, preprends header.
+    // So here we just return the |=== block content or the full block?
+    // The previous code returned `|===\n...|===`.
+    
+    if (table.metadata && table.metadata.cols) {
+        output += `[cols="${table.metadata.cols}"]\n`;
+    }
+    // Note: PreviewBlock might double-add attributes if we do it here. 
+    // PreviewBlock adds `block.attributes`.
+    // Let's stick to the content body.
+    
+    output += '|===\n';
     
     table.rows.forEach((row) => {
-        const rowContent = row.cells.map(cell => {
+        row.cells.forEach(cell => {
              // Generate Span Prefix
              let prefix = '';
+             let hasSpecifier = false;
              const c = cell.colSpan || 1;
              const r = cell.rowSpan || 1;
              
              if (c > 1 || r > 1) {
+                 hasSpecifier = true;
                  if (c > 1 && r > 1) {
                      prefix = `${c}.${r}+|`;
                  } else if (c > 1) {
@@ -45,14 +40,30 @@ export class BasicTableSerializer implements TableSerializer {
                  } else { // r > 1
                      prefix = `.${r}+|`;
                  }
+             } else {
+                 prefix = '|'; 
              }
-
-             // Escape pipes if necessary, though basic usage usually assumes clean content
-             // Also ensure content doesn't start with pipe unintentionally
-             return ` ${prefix}${cell.content} `;
-        }).join('|');
+             
+             // Escape content? 
+             let content = cell.content || '';
+             // If content has multiple lines, we need to ensure it doesn't break the cell structure.
+             // Usually just raw text is fine after the pipe.
+             
+             output += `${prefix} ${content}\n`;
+        });
         
-        output += `|${rowContent}\n`;
+        // No explicit row separator needed in "one cell per line" mode usually, 
+        // BUT strict AsciiDoc often implies 1 line = 1 cell, and breaks row based on cols count.
+        // Or requires an empty line to separate?
+        // Actually, just `\n` between cells is fine.
+        
+        // HOWEVER, to be visually clean or debuggable:
+        // output += '\n'; 
+        // We removed logic that splits rows. The PARSER is column aware.
+        // The GENERATOR should rely on the `rows` structure?
+        // In "cell per line" mode, AsciiDoc consumes cells into the grid.
+        // The `rows` array in `Table` is just our logical grouping.
+        // We flat dump them.
     });
 
     output += '|===';

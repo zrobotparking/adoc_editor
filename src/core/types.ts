@@ -25,6 +25,8 @@ export interface TableBlock {
     table: Table;
     startLine: number; // 0-indexed line number where |=== starts
     endLine: number;   // 0-indexed line number where |=== ends
+    attributes?: string[];
+    title?: string;
 }
 
 export interface TextBlock {
@@ -33,6 +35,8 @@ export interface TextBlock {
     content: string; // The raw text content
     startLine: number;
     endLine: number;
+    attributes?: string[];
+    title?: string;
 }
 
 export type Block = TableBlock | TextBlock;

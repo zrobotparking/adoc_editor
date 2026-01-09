@@ -12,6 +12,7 @@ export class BasicPipeParser implements TableParser {
         let inTable = false;
         let tableStartLine = -1;
         let tableContentLines: string[] = [];
+        let currentTableAttributes: string[] = [];
         
         // Track text content state
         let textStartLine = -1;
@@ -25,14 +26,35 @@ export class BasicPipeParser implements TableParser {
                 if (!inTable) {
                     // --- Start of a table ---
                     
-                    // 1. Flush any pending text block before this table
+                    // 0. Check for Metadata (Attributes/Title) in pending text
+                    currentTableAttributes = [];
+                    if (textContentLines.length > 0) {
+                        // Scan backwards for metadata
+                        let cutoffIndex = textContentLines.length;
+                        while (cutoffIndex > 0) {
+                             const l = textContentLines[cutoffIndex - 1].trim();
+                             // Match [attributes] or .Title (but not ..DoubleDot)
+                             if ((/^\[.*\]$/.test(l)) || (/^\.[^.]+.*$/.test(l))) {
+                                 cutoffIndex--;
+                             } else {
+                                 break;
+                             }
+                        }
+                        
+                        if (cutoffIndex < textContentLines.length) {
+                             currentTableAttributes = textContentLines.slice(cutoffIndex);
+                             textContentLines = textContentLines.slice(0, cutoffIndex);
+                        }
+                    }
+                    
+                    // 1. Flush any pending text block (minus attributes)
                     if (textContentLines.length > 0) {
                         blocks.push({
                             id: `block-${blockIndex++}`,
                             type: 'text',
                             content: textContentLines.join('\n'),
-                            startLine: textStartLine,
-                            endLine: i - 1
+                            startLine: textStartLine, 
+                            endLine: (textStartLine + textContentLines.length) - 1
                         });
                         textContentLines = [];
                         textStartLine = -1;
@@ -47,16 +69,19 @@ export class BasicPipeParser implements TableParser {
                     inTable = false;
                     const tableEndLine = i;
                     
-                    const table = this.parseTableContent(tableContentLines, blockIndex);
+                    const table = this.parseTableContent(tableContentLines, blockIndex, currentTableAttributes);
                     if (table) {
                         blocks.push({
                             id: `block-${blockIndex++}`,
                             type: 'table',
                             table,
                             startLine: tableStartLine,
-                            endLine: tableEndLine
+                            endLine: tableEndLine,
+                            attributes: currentTableAttributes.filter(a => a.startsWith('[')),
+                            title: currentTableAttributes.find(a => a.startsWith('.'))?.substring(1).trim()
                         });
                     }
+                    currentTableAttributes = [];
                     
                     // Reset text tracking for next block
                     // Next text block starts at i + 1
@@ -121,161 +146,179 @@ export class BasicPipeParser implements TableParser {
         return blocks;
     }
 
-    private parseTableContent(lines: string[], blockIndex: number): Table | null {
-         // Filter Empty lines
+    private parseTableContent(lines: string[], blockIndex: number, attributes: string[]): Table | null {
+         // 1. Determine Column Count from attributes
+         let colCount = 0;
+         const colsAttr = attributes.find(a => a.includes('cols='));
+         if (colsAttr) {
+             const match = colsAttr.match(/cols="?([^"]+)"?/);
+             if (match) {
+                 // Format: "1,2,3" or "2*^" etc.
+                 // Simple comma count for now
+                 const parts = match[1].split(',');
+                 colCount = parts.length;
+             }
+         }
+
+         // Filter Empty lines (unless we want to use them as row separators? 
+         // Standard AsciiDoc: cells just flow into the grid. Empty lines are separators if strict, but let's rely on cols if available.)
          const contentLines = lines.filter(l => l.trim() !== '');
          
          if (contentLines.length === 0) return null;
  
-         const rows: Row[] = [];
+         // 2. Extract ALL Cells first (Flattening)
+         const allCells: Cell[] = [];
          
          contentLines.forEach((line) => {
-             // trimmedLine removed if unused
-             // const trimmedLine = line.trim();
+             // ... [Reuse existing Cell Extraction Logic] ...
+             const isCellSpecifier = /^(?:(\d+)?(?:\.(\d+))?)\+\|/.test(line.trim());
              
-             // Check if line starts with a pipe (New Row or Cell)
-             // simplified logic: In this basic parser, we assume new rows start with |
-             // If a line does NOT start with |, it's a continuation of the previous cell.
-             if (!line.trim().startsWith('|') && rows.length > 0) {
-                 // Continuation of the last cell of the last row
-                 const lastRow = rows[rows.length - 1];
-                 if (lastRow.cells.length > 0) {
-                     const lastCell = lastRow.cells[lastRow.cells.length - 1];
-                     // Determine separator: strict AsciiDoc usually implies a space or just contact.
-                     // But if the previous line ended with ' +', it's a hard break.
-                     // We just append a newline char to represent the line break in source.
-                     // The cleanContent logic will later handle formatting.
-                     lastCell.content += '\n' + line.trim(); 
-                     
-                     // Re-run cleaner on the full content
-                     // Note: We might want to defer cleaning until the end, but EditableCell expects 'content' to be ready?
-                     // Actually, logic below creates NEW cells. We need to modify the EXISTING object.
-                     // But wait, the below logic maps `parts` to `cells`. 
-                     // We can't easily "re-map" the existing cell's cleaner unless we do it here.
-                     
-                     // Let's just update the raw content. The "cleanContent" replacement happened during creation.
-                     // We should apply the replacement to the APPENDED part if needed, or re-clean.
-                     // Let's us just append the content with a newline
-                     // additionalPart logic removed as unused
-                     // const additionalPart = line.trim().replace(/\s\+\s/g, '\n').replace(/^\+\s/, '\n');
-                     
-                     // Correction: We already have `lastCell.content` cleaned (newlines real).
-                     // If source was "Text +", cleaned is "Text +". Wait, step 802 replaced `\s\+\s` with `\n`.
-                     // If source was: "Line 1 +"
-                     // The `+` is at the end. split space `+` space might fail if `+` is last char.
-                     // Regex `\s\+\s` matches space+plus+space.
-                     // "Line 1 +" -> space + (end).
-                     // We need `\s\+(\s|$)` ?
-                     
-                     // Let's refine the cleaner in the main creation block too.
-                     // For now, simply append content.
-                     // But wait, if we append raw text to already-cleaned text, we might mix formats.
-                     // It's better to store RAW content in the parser and clean it at the VERY END?
-                     // Or just clean on the fly.
-                     
-                     // Let's try to just append for now, and rely on the Editor to handle it?
-                     // VisualTableEditor displays `cell.content`. 
-                     // If `cell.content` has `\n`, Textarea shows newline.
-                     // If `line` has `Valid values...`, we append `\nValid values...`.
-                     // The user sees a newline. Correct.
-                 }
+             if (!line.trim().startsWith('|') && !isCellSpecifier && allCells.length > 0) {
+                 // Continuation
+                 const lastCell = allCells[allCells.length - 1];
+                 lastCell.content += '\n' + line.trim();
                  return;
              }
 
-             // Handle Standard Row (Starts with |)
-             // Remove leading/trailing pipes
              const processingLine = line.replace(/^\|/, '').replace(/\|$/, '');
-             
-             // Handle escaped pipes? Assuming simple split for now
              const parts = processingLine.split('|');
              
              if (parts.length > 0) {
-                 const cells: Cell[] = [];
-                 
                  for (let i = 0; i < parts.length; i++) {
                     let part = parts[i];
                     
-                    // Check if this part is actually a Span Specifier (e.g. "2+") 
-                    // which was split from its content because of the pipe in "2+|"
-                    // Regex: Strictly digits/dots followed by + (and maybe whitespace)
-                    // It must NOT be the last part (must have content after it)
                     if (i < parts.length - 1) {
                          const specifierMatch = part.trim().match(/^(?:(\d+)?(?:\.(\d+))?)\+$/);
                          if (specifierMatch) {
-                             // It IS a specifier. The content is in the NEXT part.
-                             // Merge them.
-                             // We simulate the full cell string "2+|Content" or just extract spans now.
-                             // Let's extract now to be clean.
                              const nextPart = parts[i+1];
-                             
                              let colSpan = 1;
                              let rowSpan = 1;
                              if (specifierMatch[1]) colSpan = parseInt(specifierMatch[1], 10);
                              if (specifierMatch[2]) rowSpan = parseInt(specifierMatch[2], 10);
                              
-                             // Clean content of the NEXT part
                              let cleanContent = nextPart.trim();
-                             cleanContent = cleanContent.replace(/\s\+\s/g, '\n');
-                             cleanContent = cleanContent.replace(/\s\+$/, '\n');
+                             cleanContent = cleanContent.replace(/\s\+\s/g, '\n').replace(/\s\+$/, '\n');
                              
-                             cells.push({
-                                id: `cell-${blockIndex}-${rows.length}-${cells.length}`,
+                             allCells.push({
+                                id: `cell-${blockIndex}-${allCells.length}`,
                                 content: cleanContent,
                                 rowSpan,
                                 colSpan
                              });
-                             
-                             // Skip the next part since we consumed it
                              i++;
                              continue;
                          }
                     }
                     
-                    // Normal Cell (or failed detached specifier match)
                     let cleanContent = part.trim();
                     let colSpan = 1;
                     let rowSpan = 1;
                     
-                    // Check for INLINE specifier: "2+|Content" or ".2+|Content"
-                    // Only if detached check failed
                     const inlineMatch = cleanContent.match(/^(?:(\d+)?(?:\.(\d+))?)\+\|(.*)$/s);
                     if (inlineMatch) {
                          const colStr = inlineMatch[1];
                          const rowStr = inlineMatch[2];
                          const restContent = inlineMatch[3];
-                         
                          if (colStr) colSpan = parseInt(colStr, 10);
                          if (rowStr) rowSpan = parseInt(rowStr, 10);
-                         
                          cleanContent = restContent.trim();
                     }
                     
-                    // Cleanup content
-                    cleanContent = cleanContent.replace(/\s\+\s/g, '\n');
-                    cleanContent = cleanContent.replace(/\s\+$/, '\n');
+                    cleanContent = cleanContent.replace(/\s\+\s/g, '\n').replace(/\s\+$/, '\n');
                     
-                    cells.push({
-                        id: `cell-${blockIndex}-${rows.length}-${cells.length}`,
+                    allCells.push({
+                        id: `cell-${blockIndex}-${allCells.length}`,
                         content: cleanContent,
                         rowSpan,
                         colSpan
                     });
                  }
-                 
-                 if (cells.length > 0) {
-                     rows.push({
-                         id: `row-${blockIndex}-${rows.length}`,
-                         cells
-                     });
-                 }
              }
          });
 
-         if (rows.length === 0) return null;
- 
+         // 3. Reconstruct Rows based on Col Count
+         // If colCount is 0, heuristic: Try to detect from first "row" of cells?
+         // Fallback: If no cols attribute, we assume strict one-line-one-row? 
+         // Or just treat allCells as one row? 
+         // Let's assume user provides cols or we scan first row of pipes.
+         if (colCount === 0 && lines.length > 0) {
+             const firstLine = lines.find(l => l.trim().startsWith('|'));
+             if (firstLine) {
+                 // Count pipes? `| a | b |` -> 3 pipes -> 2 cells.
+                 // A bit loose. Default to 1 if failed.
+                 const pipes = firstLine.trim().split('|').length - 1;
+                 colCount = pipes > 0 ? pipes - 1 : 1; 
+                 // Adjust for leading/trailing pipe usually?
+                 // `| a | b` -> 3 parts -> 2 cells.
+             } else {
+                 colCount = 1;
+             }
+         }
+         
+         const rows: Row[] = [];
+         
+         // Grid Tracker to account for RowSpans
+         // occupied[row][col] = true
+         // Since we don't know total rows, we grow it.
+         // We iterate cell by cell and place them into the "next available slot".
+         // Use a virtual pointer.
+         
+         const occupied: boolean[][] = [];
+         let currentRowIndex = 0;
+         let currentColIndex = 0;
+         
+         // Init First Row
+         rows.push({ id: `row-${blockIndex}-0`, cells: [] });
+         
+         allCells.forEach(cell => {
+             // Find next free slot
+             while (occupied[currentRowIndex] && occupied[currentRowIndex][currentColIndex]) {
+                 currentColIndex++;
+                 if (currentColIndex >= colCount) {
+                     currentColIndex = 0;
+                     currentRowIndex++;
+                     if (!rows[currentRowIndex]) rows[currentRowIndex] = { id: `row-${blockIndex}-${currentRowIndex}`, cells: [] };
+                 }
+             }
+             
+             // Place cell at current slot
+             if (!rows[currentRowIndex]) rows[currentRowIndex] = { id: `row-${blockIndex}-${currentRowIndex}`, cells: [] };
+             rows[currentRowIndex].cells.push(cell);
+             
+             // Mark coverage
+             const rs = cell.rowSpan || 1;
+             const cs = cell.colSpan || 1;
+             
+             // Mark this cell's immediate span
+             for (let r = 0; r < rs; r++) {
+                 for (let c = 0; c < cs; c++) {
+                     const targetR = currentRowIndex + r;
+                     const targetC = currentColIndex + c;
+                     if (!occupied[targetR]) occupied[targetR] = [];
+                     occupied[targetR][targetC] = true;
+                 }
+             }
+             
+             // Move Pointer
+             // In AsciiDoc flow, we move by *1 logical slot*? 
+             // No, if I place a colspan=2 cell, I consumed 2 cols.
+             currentColIndex += cs;
+             
+             // Wrap
+             if (currentColIndex >= colCount) {
+                 currentColIndex = 0;
+                 currentRowIndex++;
+                 // Ensure next row exists if we are jumping there
+                 if (!rows[currentRowIndex]) rows[currentRowIndex] = { id: `row-${blockIndex}-${currentRowIndex}`, cells: [] };
+             }
+         });
+         
+         // Filter Empty Rows (caused by trailing jumps)?
+         // Usually harmless.
+         
          return {
              id: `table-${blockIndex}`,
-             rows
+             rows: rows.filter(r => r.cells.length > 0) // cleanup empty tail rows
          };
     }
 }
