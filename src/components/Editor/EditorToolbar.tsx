@@ -140,6 +140,15 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ onAction }) => {
                 onClick={() => onAction('comment')}
                 icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z"/></svg>} 
             />
+
+            <Divider />
+
+            {/* Export */}
+            <ToolbarButton 
+                title="Print / Save as PDF (Ctrl+P)"
+                onClick={() => onAction('pdf')}
+                icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>} 
+            />
         </div>
     );
 };

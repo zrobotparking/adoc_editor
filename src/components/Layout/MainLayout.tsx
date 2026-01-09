@@ -21,6 +21,8 @@ interface MainLayoutProps {
   onToggleBlockHighlight?: () => void;
   autoReveal?: boolean;
   onToggleAutoReveal?: () => void;
+  
+  onGeneratePdf?: () => void;
 }
 
 export const MainLayout: React.FC<MainLayoutProps> = ({ 
@@ -36,7 +38,8 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
   showBlockHighlight = true,
   onToggleBlockHighlight,
   autoReveal = true,
-  onToggleAutoReveal
+  onToggleAutoReveal,
+  onGeneratePdf
 }) => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -103,18 +106,28 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
       <div className={`flex-1 flex flex-col border-r ${borderClass} min-w-[300px]`}>
          <div className={`p-2 border-b ${borderClass} ${headerBgClass} text-sm font-medium flex justify-between items-center`}>
              <span>Source.adoc</span>
-             <button 
-                onClick={onToggleSyncSourceToPreview}
-                className={`text-xs px-2 py-1 rounded transition-colors ${
-                  isSyncSourceToPreview 
-                    ? 'bg-blue-600 text-white hover:bg-blue-700' 
-                    : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
-                }`}
-                title="Controls whether scrolling Source scrolls Preview"
-              >
-                Sync Scroll: {isSyncSourceToPreview ? 'ON' : 'OFF'}
-              </button>
-         </div>
+            <div className="flex items-center space-x-2">
+               <button 
+                  onClick={onGeneratePdf}
+                  className="px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700 flex items-center space-x-1"
+                  title="Generate PDF via Asciidoctor"
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                  <span>PDF</span>
+               </button>
+               <button 
+                  onClick={onToggleSyncSourceToPreview}
+                  className={`text-xs px-2 py-1 rounded transition-colors ${
+                    isSyncSourceToPreview 
+                      ? 'bg-blue-600 text-white hover:bg-blue-700' 
+                      : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
+                  }`}
+                  title="Controls whether scrolling Source scrolls Preview"
+                >
+                  Sync: {isSyncSourceToPreview ? 'ON' : 'OFF'}
+                </button>
+             </div>
+          </div>
          <div className="flex-1 overflow-hidden relative">
              {editor}
          </div>

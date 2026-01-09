@@ -32,8 +32,24 @@ export class BasicTableSerializer implements TableSerializer {
     
     table.rows.forEach((row) => {
         const rowContent = row.cells.map(cell => {
+             // Generate Span Prefix
+             let prefix = '';
+             const c = cell.colSpan || 1;
+             const r = cell.rowSpan || 1;
+             
+             if (c > 1 || r > 1) {
+                 if (c > 1 && r > 1) {
+                     prefix = `${c}.${r}+|`;
+                 } else if (c > 1) {
+                     prefix = `${c}+|`;
+                 } else { // r > 1
+                     prefix = `.${r}+|`;
+                 }
+             }
+
              // Escape pipes if necessary, though basic usage usually assumes clean content
-             return ` ${cell.content} `;
+             // Also ensure content doesn't start with pipe unintentionally
+             return ` ${prefix}${cell.content} `;
         }).join('|');
         
         output += `|${rowContent}\n`;

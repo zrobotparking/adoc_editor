@@ -85,7 +85,16 @@ export const PreviewBlock: React.FC<PreviewBlockProps> = ({
                 converted = asciidoctor.convert(block.content, options) as string;
             } else if (block.type === 'table') {
                 const serializer = new BasicTableSerializer();
-                const adoc = serializer.serialize(block.table);
+                let adoc = serializer.serialize(block.table);
+                
+                // Prepend attributes and title for correct rendering
+                let header = '';
+                if (block.title) header += `.${block.title}\n`;
+                if (block.attributes && block.attributes.length > 0) {
+                    header += block.attributes.join('\n') + '\n';
+                }
+                
+                adoc = header + adoc;
                 converted = asciidoctor.convert(adoc, options) as string;
             }
 

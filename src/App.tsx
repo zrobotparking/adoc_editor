@@ -29,11 +29,15 @@ import { FileExplorer } from './components/Explorer/FileExplorer';
 import { applyTheme } from './core/theme/themeConfig';
 import { useHistory } from './hooks/useHistory';
 
+import { TableTestPage } from './components/Playground/TableTestPage';
+
 function App() {
   console.time('App Render Total');
   useEffect(() => {
       console.timeEnd('App Render Total');
   });
+
+  const [showTestPage, setShowTestPage] = useState(false);
 
   // Multi-File State with History
   const {
@@ -192,11 +196,15 @@ function App() {
       }
   }, [syncPreviewToSource]);
 
-  // ESC key handler to exit edit mode
+  // Global Shortcuts
   useEffect(() => {
       const handleKeyDown = (e: KeyboardEvent) => {
           if (e.key === 'Escape') {
               setActiveBlockId(null);
+          }
+          // Ctrl+Alt+T to toggle Test Page
+          if (e.ctrlKey && e.altKey && (e.key === 't' || e.key === 'T')) {
+              setShowTestPage(prev => !prev);
           }
       };
 
@@ -257,6 +265,41 @@ function App() {
       }
   }, [blocks, autoReveal]);
 
+  // PDF Generation Handler
+  const handleGeneratePdf = async () => {
+      if (!content) return;
+      
+      try {
+          // Notify user (optional toast could go here)
+          console.log('Generating PDF...');
+          
+          const response = await fetch('/api/generate-pdf', {
+              method: 'POST',
+              headers: { 'Content-Type': 'text/plain' },
+              body: content
+          });
+
+          if (!response.ok) {
+              const err = await response.json();
+              throw new Error(err.error || 'Failed to generate PDF');
+          }
+
+          const blob = await response.blob();
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = (activeFile || 'document').replace(/\.adoc$/, '') + '.pdf';
+          document.body.appendChild(a);
+          a.click();
+          window.URL.revokeObjectURL(url);
+          document.body.removeChild(a);
+          
+      } catch (error) {
+          console.error('PDF Generation Failed:', error);
+          alert('Failed to generate PDF. Make sure asciidoctor-pdf is installed in your system PATH.');
+      }
+  };
+
   // Derive ranges for Source Editor highlighting
   const activeRanges = useMemo(() => {
       if (!showBlockHighlight) return [];
@@ -268,6 +311,16 @@ function App() {
 
   return (
     <div className={theme === 'dark' ? 'dark' : ''}>
+        {showTestPage && <TableTestPage onClose={() => setShowTestPage(false)} />}
+        
+        <button 
+            onClick={() => setShowTestPage(true)}
+            className="fixed bottom-4 right-4 z-50 bg-purple-600 text-white p-2 rounded-full shadow-lg opacity-50 hover:opacity-100 transition-opacity"
+            title="Open Table Playground"
+        >
+            🐞
+        </button>
+
         <MainLayout
             isSyncSourceToPreview={syncSourceToPreview}
             onToggleSyncSourceToPreview={() => setSyncSourceToPreview(!syncSourceToPreview)}
@@ -279,6 +332,7 @@ function App() {
             onToggleBlockHighlight={() => setShowBlockHighlight(!showBlockHighlight)}
             autoReveal={autoReveal}
             onToggleAutoReveal={() => setAutoReveal(!autoReveal)}
+            onGeneratePdf={handleGeneratePdf}
             explorer={
                 <FileExplorer 
                     files={files}
@@ -304,7 +358,6 @@ function App() {
         <DocPreview 
             ref={previewRef}
             blocks={blocks}
-            blocks={blocks} // Warning: duplicate prop
             onEditBlock={handleEditBlock}
             onUpdateBlock={handleBlockUpdate}
             onCancelEdit={handleCancelEdit}

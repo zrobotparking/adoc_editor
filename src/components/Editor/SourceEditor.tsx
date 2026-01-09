@@ -134,6 +134,9 @@ export const SourceEditor = forwardRef<SourceEditorHandle, SourceEditorProps>(({
             case 'comment':
                 insertAtCursor('// ');
                 break;
+            case 'pdf':
+                window.print();
+                break;
         }
     };
 

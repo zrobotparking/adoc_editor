@@ -1,9 +1,7 @@
-import { type Table, type Row, type Cell, type TableParser, type TableBlock, type Block } from './types';
+import { type Table, type Row, type Cell, type TableParser, type Block } from './types';
 
 // Basic ID generator to avoid crypto dependency issues in some environments
-function uuid(): string {
-  return Date.now().toString(36) + Math.random().toString(36).substr(2);
-}
+// function uuid(): string { return ... } // Unused
 
 export class BasicPipeParser implements TableParser {
     parse(input: string): Block[] {
@@ -131,8 +129,9 @@ export class BasicPipeParser implements TableParser {
  
          const rows: Row[] = [];
          
-         contentLines.forEach((line, rowIndex) => {
-             const trimmedLine = line.trim();
+         contentLines.forEach((line) => {
+             // trimmedLine removed if unused
+             // const trimmedLine = line.trim();
              
              // Check if line starts with a pipe (New Row or Cell)
              // simplified logic: In this basic parser, we assume new rows start with |
@@ -156,8 +155,9 @@ export class BasicPipeParser implements TableParser {
                      
                      // Let's just update the raw content. The "cleanContent" replacement happened during creation.
                      // We should apply the replacement to the APPENDED part if needed, or re-clean.
-                     // Simplified: Just replace ` + ` in the new part.
-                     const additionalPart = line.trim().replace(/\s\+\s/g, '\n').replace(/^\+\s/, '\n'); // Handle start of line +
+                     // Let's us just append the content with a newline
+                     // additionalPart logic removed as unused
+                     // const additionalPart = line.trim().replace(/\s\+\s/g, '\n').replace(/^\+\s/, '\n');
                      
                      // Correction: We already have `lastCell.content` cleaned (newlines real).
                      // If source was "Text +", cleaned is "Text +". Wait, step 802 replaced `\s\+\s` with `\n`.
@@ -190,20 +190,77 @@ export class BasicPipeParser implements TableParser {
              const parts = processingLine.split('|');
              
              if (parts.length > 0) {
-                 const cells: Cell[] = parts.map((part, colIndex) => {
-                     // Reverse Serialization: " + " -> "\n"
-                     // Regex to catch " + " or " +" at end of string
-                     let cleanContent = part.trim();
-                     cleanContent = cleanContent.replace(/\s\+\s/g, '\n');
-                     cleanContent = cleanContent.replace(/\s\+$/, '\n'); // Handle end of cell hard break
-
-                     return {
-                        id: `cell-${blockIndex}-${rows.length}-${colIndex}`, // Use rows.length for strict index
+                 const cells: Cell[] = [];
+                 
+                 for (let i = 0; i < parts.length; i++) {
+                    let part = parts[i];
+                    
+                    // Check if this part is actually a Span Specifier (e.g. "2+") 
+                    // which was split from its content because of the pipe in "2+|"
+                    // Regex: Strictly digits/dots followed by + (and maybe whitespace)
+                    // It must NOT be the last part (must have content after it)
+                    if (i < parts.length - 1) {
+                         const specifierMatch = part.trim().match(/^(?:(\d+)?(?:\.(\d+))?)\+$/);
+                         if (specifierMatch) {
+                             // It IS a specifier. The content is in the NEXT part.
+                             // Merge them.
+                             // We simulate the full cell string "2+|Content" or just extract spans now.
+                             // Let's extract now to be clean.
+                             const nextPart = parts[i+1];
+                             
+                             let colSpan = 1;
+                             let rowSpan = 1;
+                             if (specifierMatch[1]) colSpan = parseInt(specifierMatch[1], 10);
+                             if (specifierMatch[2]) rowSpan = parseInt(specifierMatch[2], 10);
+                             
+                             // Clean content of the NEXT part
+                             let cleanContent = nextPart.trim();
+                             cleanContent = cleanContent.replace(/\s\+\s/g, '\n');
+                             cleanContent = cleanContent.replace(/\s\+$/, '\n');
+                             
+                             cells.push({
+                                id: `cell-${blockIndex}-${rows.length}-${cells.length}`,
+                                content: cleanContent,
+                                rowSpan,
+                                colSpan
+                             });
+                             
+                             // Skip the next part since we consumed it
+                             i++;
+                             continue;
+                         }
+                    }
+                    
+                    // Normal Cell (or failed detached specifier match)
+                    let cleanContent = part.trim();
+                    let colSpan = 1;
+                    let rowSpan = 1;
+                    
+                    // Check for INLINE specifier: "2+|Content" or ".2+|Content"
+                    // Only if detached check failed
+                    const inlineMatch = cleanContent.match(/^(?:(\d+)?(?:\.(\d+))?)\+\|(.*)$/s);
+                    if (inlineMatch) {
+                         const colStr = inlineMatch[1];
+                         const rowStr = inlineMatch[2];
+                         const restContent = inlineMatch[3];
+                         
+                         if (colStr) colSpan = parseInt(colStr, 10);
+                         if (rowStr) rowSpan = parseInt(rowStr, 10);
+                         
+                         cleanContent = restContent.trim();
+                    }
+                    
+                    // Cleanup content
+                    cleanContent = cleanContent.replace(/\s\+\s/g, '\n');
+                    cleanContent = cleanContent.replace(/\s\+$/, '\n');
+                    
+                    cells.push({
+                        id: `cell-${blockIndex}-${rows.length}-${cells.length}`,
                         content: cleanContent,
-                        rowSpan: 1,
-                        colSpan: 1
-                     };
-                 });
+                        rowSpan,
+                        colSpan
+                    });
+                 }
                  
                  if (cells.length > 0) {
                      rows.push({
