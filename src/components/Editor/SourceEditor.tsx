@@ -390,6 +390,9 @@ export const SourceEditor = forwardRef<SourceEditorHandle, SourceEditorProps>(({
             renderedLines.push(<div key="spacer-bottom" style={{ height: `${(lines.length - endLine) * rowHeight}px` }} />);
         }
 
+        // Add extra buffer to match textarea scroll behavior at the very bottom
+        renderedLines.push(<div key="viewport-buffer" style={{ height: '32px' }} />);
+
         return renderedLines;
     };
 
@@ -410,11 +413,8 @@ export const SourceEditor = forwardRef<SourceEditorHandle, SourceEditorProps>(({
         // Only needed for visible lines.
         const lineBlockMap = new Map<number, string>();
         blocks.forEach(b => {
-            if (b.type !== 'text' || b.content.trim().length > 0) { // Only collapsible blocks?
-                // Actually, usually we collapse headers or tables.
-                // Let's allow collapsing any block defined by parser.
-                // Index by startLine.
-                // Constraint: One block starts per line? usually yes.
+            // Only collapsible blocks that are NOT single line
+            if ((b.type !== 'text' || b.content.trim().length > 0) && b.startLine !== b.endLine) { 
                 lineBlockMap.set(b.startLine, b.id);
             }
         });
@@ -456,7 +456,9 @@ export const SourceEditor = forwardRef<SourceEditorHandle, SourceEditorProps>(({
                          </div>
                     )}
 
-                    {realLine + 1}
+                    <span style={{ color: isCollapsed ? '#60a5fa' : 'inherit' }}>
+                        {realLine + 1}
+                    </span>
                 </div>
             );
         }
@@ -466,13 +468,16 @@ export const SourceEditor = forwardRef<SourceEditorHandle, SourceEditorProps>(({
             renderedItems.push(<div key="spacer-bottom" style={{ height: `${(lines.length - endLine) * rowHeight}px` }} />);
         }
 
+        // Add extra buffer to match textarea scroll behavior (same as overlay)
+        renderedItems.push(<div key="viewport-buffer" style={{ height: '32px' }} />);
+
         return renderedItems;
     };
 
     // Calculate total height for the highlight layer to ensure it scrolls correctly
-    // 21px per line + 32px padding (16px top + 16px bottom)
+    // 21px per line + 32px padding (16px top + 16px bottom) + 32px extra buffer
     // Adding extra buffer to be safe
-    const contentHeight = Math.max((lines.length * 21) + 32, 100); 
+    const contentHeight = Math.max((lines.length * 21) + 64, 100); 
 
     // Font settings to ensure perfect alignment between textarea and overlay
     const editorStyle: React.CSSProperties = {
@@ -482,6 +487,14 @@ export const SourceEditor = forwardRef<SourceEditorHandle, SourceEditorProps>(({
         letterSpacing: '0px',
         fontVariantLigatures: 'none',
         boxSizing: 'border-box',
+        padding: '16px', // Explicit padding to match
+        margin: 0,
+        border: 'none', // Ensure no border affects box model
+        background: 'transparent',
+        whiteSpace: 'pre',
+        overflowWrap: 'normal',
+        display: 'block', // Force block display
+        verticalAlign: 'baseline',
     };
 
     return (
@@ -499,14 +512,18 @@ export const SourceEditor = forwardRef<SourceEditorHandle, SourceEditorProps>(({
                         ...editorStyle,
                         fontFamily: 'monospace', // Gutter can stay default mono or match
                         width: '56px',
-                        paddingTop: '16px' 
+                        paddingTop: '16px',
+                        paddingRight: '4px',
+                        paddingLeft: '16px',
+                        paddingBottom: '16px',
+                        borderRight: '1px solid var(--explorer-border)' // Restore border needed for visual
                     }}
                 >
                     {renderGutter()}
                 </div>
 
                 {/* Editor Container - Stacked */}
-                <div className="flex-grow relative" style={editorStyle}>
+                <div className="flex-grow relative" style={{ ...editorStyle, padding: 0 }}> 
                     
                     {/* Block Highlight Layer */}
                     <div
@@ -553,7 +570,7 @@ export const SourceEditor = forwardRef<SourceEditorHandle, SourceEditorProps>(({
                     <pre
                         ref={overlayRef}
                         aria-hidden="true"
-                        className="absolute inset-0 p-4 m-0 overflow-hidden whitespace-pre pointer-events-none bg-transparent"
+                        className="absolute inset-0 w-full h-full m-0 p-0 overflow-hidden whitespace-pre pointer-events-none bg-transparent border-0"
                         style={{ 
                             ...editorStyle
                         }}
@@ -564,7 +581,7 @@ export const SourceEditor = forwardRef<SourceEditorHandle, SourceEditorProps>(({
                     {/* Interaction Layer (Textarea) */}
                     <textarea
                         ref={textareaRef}
-                        className="absolute inset-0 w-full h-full p-4 m-0 resize-none outline-none whitespace-pre bg-transparent text-transparent caret-editor-text"
+                        className="absolute inset-0 w-full h-full m-0 p-0 resize-none outline-none whitespace-pre bg-transparent text-transparent caret-editor-text border-0"
                         style={{ 
                             ...editorStyle,
                             caretColor: 'var(--text-secondary)',
