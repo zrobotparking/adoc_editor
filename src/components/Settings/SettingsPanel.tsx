@@ -9,6 +9,8 @@ interface SettingsPanelProps {
     onToggleBlockHighlight: () => void;
     autoReveal: boolean;
     onToggleAutoReveal: () => void;
+    highlightSourceOnPreviewClick: boolean;
+    onToggleHighlightSourceOnPreviewClick: () => void;
 }
 
 export const SettingsPanel: React.FC<SettingsPanelProps> = ({ 
@@ -19,7 +21,9 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     showBlockHighlight,
     onToggleBlockHighlight,
     autoReveal,
-    onToggleAutoReveal
+    onToggleAutoReveal,
+    highlightSourceOnPreviewClick,
+    onToggleHighlightSourceOnPreviewClick
 }) => {
     if (!isOpen) return null;
 
@@ -64,6 +68,16 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                         className="form-checkbox h-4 w-4 text-blue-600 rounded bg-app-base border-gray-500"
                     />
                     <span>Auto Reveal Preview</span>
+                </label>
+
+                <label className="flex items-center space-x-2 text-sm font-medium text-text-primary cursor-pointer">
+                    <input 
+                        type="checkbox" 
+                        checked={highlightSourceOnPreviewClick}
+                        onChange={onToggleHighlightSourceOnPreviewClick}
+                        className="form-checkbox h-4 w-4 text-blue-600 rounded bg-app-base border-gray-500"
+                    />
+                    <span>Click Preview Highlights Source</span>
                 </label>
             </div>
 

@@ -14,6 +14,12 @@ export class BasicPipeParser implements TableParser {
         let tableContentLines: string[] = [];
         let currentTableAttributes: string[] = [];
         
+        // Track Code Block state
+        let inCodeBlock = false;
+        let codeBlockStartLine = -1;
+        let codeBlockContentLines: string[] = [];
+        let currentCodeAttributes: string[] = [];
+        
         // Track text content state
         let textStartLine = -1;
         let textContentLines: string[] = [];
@@ -22,7 +28,7 @@ export class BasicPipeParser implements TableParser {
             const line = lines[i]; // Keep whitespace for text accuracy
             const trimmedLine = line.trim();
             
-            if (/^\|={3,}$/.test(trimmedLine)) {
+            if (/^\|={3,}$/.test(trimmedLine) && !inCodeBlock) {
                 if (!inTable) {
                     // --- Start of a table ---
                     
@@ -96,8 +102,76 @@ export class BasicPipeParser implements TableParser {
                     textStartLine = i + 1;
                     textContentLines = [];
                 }
+            } else if (/^-{4,}$/.test(trimmedLine) && !inTable) {
+                // --- Code Block Delimiter ---
+                if (!inCodeBlock) {
+                    // Start of Code Block
+                    
+                    // 0. Check for Metadata
+                    let attributes: string[] = [];
+                    let attributesStartLine = -1;
+
+                     if (textContentLines.length > 0) {
+                        let cutoffIndex = textContentLines.length;
+                        while (cutoffIndex > 0) {
+                             const l = textContentLines[cutoffIndex - 1].trim();
+                             if ((/^\[.*\]$/.test(l)) || (/^\.[^.]+.*$/.test(l))) {
+                                 cutoffIndex--;
+                             } else {
+                                 break;
+                             }
+                        }
+                        
+                        if (cutoffIndex < textContentLines.length) {
+                             attributes = textContentLines.slice(cutoffIndex);
+                             attributesStartLine = textStartLine + cutoffIndex;
+                             textContentLines = textContentLines.slice(0, cutoffIndex);
+                        }
+                    }
+
+                    // 1. Flush Pending Text
+                    if (textContentLines.length > 0) {
+                        blocks.push({
+                            id: `block-${blockIndex++}`,
+                            type: 'text',
+                            content: textContentLines.join('\n'),
+                            startLine: textStartLine, 
+                            endLine: (textStartLine + textContentLines.length) - 1
+                        });
+                        textContentLines = [];
+                        textStartLine = -1;
+                    }
+
+                    // 2. Start Code Block
+                    inCodeBlock = true;
+                    codeBlockStartLine = attributesStartLine !== -1 ? attributesStartLine : i;
+                    codeBlockContentLines = [];
+                    currentCodeAttributes = attributes;
+
+                } else {
+                     // End of Code Block
+                     inCodeBlock = false;
+                     const codeEndLine = i;
+                     
+                     blocks.push({
+                         id: `block-${blockIndex++}`,
+                         type: 'code',
+                         content: codeBlockContentLines.join('\n'),
+                         startLine: codeBlockStartLine,
+                         endLine: codeEndLine,
+                         attributes: currentCodeAttributes.filter(a => a.startsWith('[')),
+                         title: currentCodeAttributes.find(a => a.startsWith('.'))?.substring(1).trim()
+                     });
+
+                     currentCodeAttributes = [];
+                     textStartLine = i + 1;
+                     textContentLines = [];
+                }
+
             } else if (inTable) {
                 tableContentLines.push(line);
+            } else if (inCodeBlock) {
+                codeBlockContentLines.push(line);
             } else {
                 // We are in a text block area
                 

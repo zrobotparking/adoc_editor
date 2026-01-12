@@ -28,6 +28,7 @@ import { AsciiDocLinter } from './core/Linter';
 import { FileExplorer } from './components/Explorer/FileExplorer';
 import { applyTheme } from './core/theme/themeConfig';
 import { useHistory } from './hooks/useHistory';
+import { IncludeResolver } from './core/IncludeResolver';
 
 import { TableTestPage } from './components/Playground/TableTestPage';
 
@@ -137,6 +138,7 @@ function App() {
   const [syncPreviewToSource, setSyncPreviewToSource] = useState(true);
   const [showBlockHighlight, setShowBlockHighlight] = useState(true);
   const [autoReveal, setAutoReveal] = useState(true);
+  const [highlightSourceOnPreviewClick, setHighlightSourceOnPreviewClick] = useState(true);
   
   const [theme, setTheme] = useState<'light'|'dark'>('dark');
   const previewRef = React.useRef<DocPreviewHandle>(null);
@@ -168,6 +170,11 @@ function App() {
            newBlockContent = serializer.serialize(updatedData);
       } else if (targetBlock.type === 'text') {
            newBlockContent = updatedData;
+      } else if (targetBlock.type === 'code') {
+           // Reconstruct the full block including delimiters and attributes
+           // updatedData is the inner content
+           const attributes = targetBlock.attributes ? targetBlock.attributes.join('\n') + '\n' : '';
+           newBlockContent = `${attributes}----\n${updatedData}\n----`;
       } else {
            return;
       }
@@ -188,9 +195,15 @@ function App() {
       updateFileContent(activeFile, newContent);
   }, [files, activeFile, blocks, updateFileContent]);
 
-  const handleEditBlock = useCallback((id: string, type: 'table' | 'text') => {
+  const handleEditBlock = useCallback((id: string, type: 'table' | 'text' | 'code') => {
+      if (highlightSourceOnPreviewClick) {
+          // Just highlight source w/o scrolling or changing focus
+          setHighlightedBlockIds([id]);
+          // Continue to set Active Block (Trigger Edit) as requested
+      }
+
       setActiveBlockId(id);
-  }, []);
+  }, [highlightSourceOnPreviewClick, files, activeFile, blocks]); // Added deps
 
   const handleCancelEdit = useCallback(() => {
       setActiveBlockId(null);
@@ -316,11 +329,14 @@ function App() {
       try {
           // Notify user (optional toast could go here)
           console.log('Generating PDF...');
+
+          // Resolve Includes client-side before sending to server
+          const resolvedContent = IncludeResolver.resolve(content, activeFile || 'document.adoc', files);
           
           const response = await fetch('/api/generate-pdf', {
               method: 'POST',
               headers: { 'Content-Type': 'text/plain' },
-              body: content
+              body: resolvedContent
           });
 
           if (!response.ok) {
@@ -377,6 +393,8 @@ function App() {
             autoReveal={autoReveal}
             onToggleAutoReveal={() => setAutoReveal(!autoReveal)}
             onGeneratePdf={handleGeneratePdf}
+            highlightSourceOnPreviewClick={highlightSourceOnPreviewClick}
+            onToggleHighlightSourceOnPreviewClick={() => setHighlightSourceOnPreviewClick(prev => !prev)}
             explorer={
                 <FileExplorer 
                     files={files}

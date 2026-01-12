@@ -40,7 +40,17 @@ export interface TextBlock {
     title?: string;
 }
 
-export type Block = TableBlock | TextBlock;
+export interface CodeBlock {
+    id: string;
+    type: 'code';
+    content: string; // Inner content
+    startLine: number;
+    endLine: number;
+    attributes?: string[];
+    title?: string;
+}
+
+export type Block = TableBlock | TextBlock | CodeBlock;
 
 export interface TableParser {
   parse(input: string): Block[];

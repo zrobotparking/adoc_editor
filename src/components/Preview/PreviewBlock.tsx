@@ -100,6 +100,18 @@ export const PreviewBlock: React.FC<PreviewBlockProps> = ({
                 
                 adoc = header + adoc;
                 converted = asciidoctor.convert(adoc, options) as string;
+            } else if (block.type === 'code') {
+                // Reconstruct code block with delimiters and attributes
+                let adoc = '----\n' + block.content + '\n----';
+                
+                let header = '';
+                if (block.title) header += `.${block.title}\n`;
+                if (block.attributes && block.attributes.length > 0) {
+                    header += block.attributes.join('\n') + '\n';
+                }
+                
+                adoc = header + adoc;
+                converted = asciidoctor.convert(adoc, options) as string;
             }
 
             // Apply Text Highlight if Block is Highlighted and there is text selected
@@ -223,7 +235,9 @@ export const PreviewBlock: React.FC<PreviewBlockProps> = ({
              {isCollapsed ? (
                  <div className="p-2 text-gray-400 font-mono text-sm italic border border-dashed border-gray-300 rounded">
                      {/* Show a preview snippet? */}
-                     {block.type === 'table' ? `Table (${block.table.rows.length} rows)` : `${block.content.substring(0, 50)}...`}
+                     {block.type === 'table' ? `Table (${block.table.rows.length} rows)` : 
+                      block.type === 'code' ? `Code Block` :
+                      `${block.content.substring(0, 50)}...`}
                  </div>
              ) : (
                 <div 

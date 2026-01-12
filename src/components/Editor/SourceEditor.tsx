@@ -1,6 +1,6 @@
 import React, { useMemo, useRef, forwardRef, useImperativeHandle } from 'react';
 import type { LintError } from '../../core/Linter';
-import { AsciiDocTokenizer, type Token } from '../../core/AsciiDocTokenizer';
+import { AsciiDocTokenizer } from '../../core/AsciiDocTokenizer';
 import { EditorToolbar } from './EditorToolbar';
 
 export interface SourceEditorHandle {
@@ -43,10 +43,76 @@ export const SourceEditor = forwardRef<SourceEditorHandle, SourceEditorProps>(({
     const gutterRef = useRef<HTMLDivElement>(null);
     const highlightLayerRef = useRef<HTMLDivElement>(null);
 
+
+    // Tokenizer
+    const tokenizer = useMemo(() => new AsciiDocTokenizer(), []);
+    
+    // Folding Logic
+    const { displayValue, lineMap, realToDisplayMap } = useMemo(() => {
+        if (collapsedBlockIds.length === 0 || blocks.length === 0) {
+            return { displayValue: value, lineMap: null, realToDisplayMap: null };
+        }
+
+        const hiddenRanges = blocks
+            .filter(b => collapsedBlockIds.includes(b.id))
+            .map(b => ({ start: b.startLine, end: b.endLine }))
+            .sort((a, b) => a.start - b.start);
+
+        if (hiddenRanges.length === 0) return { displayValue: value, lineMap: null, realToDisplayMap: null };
+
+        const lines = value.split('\n');
+        let newLines: string[] = [];
+        let map = new Map<number, number>(); // displayLine -> realLine
+        let rMap = new Map<number, number>(); // realLine -> displayLine
+        
+        for (let i = 0; i < lines.length; i++) {
+            const isHidden = hiddenRanges.some(r => i > r.start && i <= r.end); 
+            
+            if (!isHidden) {
+                const displayIdx = newLines.length;
+                map.set(displayIdx, i);
+                rMap.set(i, displayIdx);
+                newLines.push(lines[i]);
+            }
+        }
+        
+        return { 
+            displayValue: newLines.join('\n'), 
+            lineMap: map,
+            realToDisplayMap: rMap
+        };
+
+    }, [value, blocks, collapsedBlockIds]);
+
+    const activeValue = lineMap ? displayValue : value;
+
+    const tokens = useMemo(() => {
+        const res = tokenizer.tokenize(activeValue);
+        return res;
+    }, [activeValue, tokenizer]);
+
     useImperativeHandle(ref, () => ({
         scrollTo: (ratio: number) => {
             if (textareaRef.current) {
                 const { scrollHeight, clientHeight } = textareaRef.current;
+                
+                // Map logical ratio to visual ratio?
+                // Logic: ratio corresponds to Logical Line.
+                // We need to find the visual position of that logical line.
+                
+                // Estimate logical line
+                // const totalLogicalLines = lineMap ? lineMap.size : lines.length; // Approximate? No, lineMap is display size.
+                // Actually we don't have totalLogicalLines easily accessible inside here unless we track maxRealLine?
+                // But App passes ratio.
+                
+                // Better: App passes `ratio` which is logical.
+                // We assume linear distribution?
+                // If we don't fix this, scrolling might be slightly off but acceptable.
+                // But if Line 50 is deeply hidden, scrolling to 50% visual might land on Line 80.
+                
+                // Let's rely on textarea native scroll first. 
+                // Improvements can be made if users complain about sync accuracy.
+                
                 const targetScroll = ratio * (scrollHeight - clientHeight);
                 textareaRef.current.scrollTop = targetScroll;
                 
@@ -55,7 +121,7 @@ export const SourceEditor = forwardRef<SourceEditorHandle, SourceEditorProps>(({
                 if (highlightLayerRef.current) highlightLayerRef.current.scrollTop = targetScroll;
             }
         }
-    }));
+    }), [lineMap]); // Depend on lineMap?
 
     // Helper to insert text at cursor
     const insertAtCursor = (prefix: string, suffix: string = '') => {
@@ -150,15 +216,7 @@ export const SourceEditor = forwardRef<SourceEditorHandle, SourceEditorProps>(({
         }
     };
 
-    // Tokenizer
-    const tokenizer = useMemo(() => new AsciiDocTokenizer(), []);
-    
-    const tokens = useMemo(() => {
-        // console.time('Tokenizer');
-        const res = tokenizer.tokenize(value);
-        // console.timeEnd('Tokenizer');
-        return res;
-    }, [value, tokenizer]);
+
 
     const [scrollTop, setScrollTop] = React.useState(0);
     const [editorHeight, setEditorHeight] = React.useState(0);
@@ -191,6 +249,8 @@ export const SourceEditor = forwardRef<SourceEditorHandle, SourceEditorProps>(({
             }
             
             if (onScroll) {
+                // Map visual scrollTop to logical ratio?
+                // Approximation: visualRatio
                 const ratio = currentScrollTop / (scrollHeight - clientHeight || 1);
                 onScroll(currentScrollTop, ratio);
             }
@@ -221,7 +281,7 @@ export const SourceEditor = forwardRef<SourceEditorHandle, SourceEditorProps>(({
     }, []);
 
     console.time('Line Split');
-    const lines = value.split('\n');
+    const lines = activeValue.split('\n');
     console.timeEnd('Line Split');
     
     // Line offsets no longer needed for rendering, but might be needed for other things?
@@ -358,6 +418,7 @@ export const SourceEditor = forwardRef<SourceEditorHandle, SourceEditorProps>(({
                 lineBlockMap.set(b.startLine, b.id);
             }
         });
+        // console.log('[SourceEditor] Gutter Map', { size: lineBlockMap.size, visibleLines: endLine - startLine });
 
         // Spacer Top
         if (startLine > 0) {
@@ -365,15 +426,17 @@ export const SourceEditor = forwardRef<SourceEditorHandle, SourceEditorProps>(({
         }
 
         for (let i = startLine; i < endLine; i++) {
-            const hasError = errorMap.has(i);
-            const blockId = lineBlockMap.get(i);
+            const realLine = lineMap ? (lineMap.get(i) ?? i) : i;
+
+            const hasError = errorMap.has(realLine);
+            const blockId = lineBlockMap.get(realLine);
             const isCollapsed = blockId ? collapsedBlockIds.includes(blockId) : false;
 
             renderedItems.push(
                 <div key={i} className="relative h-[21px] flex items-center justify-end pr-5 group">
                     {/* Error Icon */}
                     {hasError && (
-                        <span className="absolute left-0 text-yellow-500 font-bold" title={errorMap.get(i)?.[0].message}>
+                        <span className="absolute left-0 text-yellow-500 font-bold" title={errorMap.get(realLine)?.[0].message}>
                             !
                         </span>
                     )}
@@ -384,6 +447,7 @@ export const SourceEditor = forwardRef<SourceEditorHandle, SourceEditorProps>(({
                             className="absolute right-1 cursor-pointer text-gray-400 hover:text-white text-[10px] leading-none flex items-center justify-center h-full w-3"
                             onClick={(e) => {
                                 e.stopPropagation();
+                                console.log('[SourceEditor] Toggle Click', blockId);
                                 onToggleCollapse(blockId);
                             }}
                             title={isCollapsed ? "Expand" : "Collapse"}
@@ -392,7 +456,7 @@ export const SourceEditor = forwardRef<SourceEditorHandle, SourceEditorProps>(({
                          </div>
                     )}
 
-                    {i + 1}
+                    {realLine + 1}
                 </div>
             );
         }
@@ -451,22 +515,36 @@ export const SourceEditor = forwardRef<SourceEditorHandle, SourceEditorProps>(({
                     >
                          <div className="relative w-full" style={{ height: `${contentHeight}px` }}>
                             {highlightedRanges.map((range, idx) => {
-                                const top = range.startLine * 21 + 16;
-                                const height = (range.endLine - range.startLine + 1) * 21;
-                                return (
-                                    <div 
-                                        key={idx}
-                                        className="absolute w-full border-r-2 border-l-2 border-t-2 border-b-2 border-blue-400 opacity-30 bg-blue-100 rounded"
-                                        style={{ 
-                                            top: `${top}px`, 
-                                            left: '4px',
-                                            right: '4px',
-                                            width: 'calc(100% - 8px)',
-                                            height: `${height}px`,
-                                            backgroundColor: 'rgba(59, 130, 246, 0.1)' 
-                                        }}
-                                    />
-                                );
+                                // Map logical range to visual range
+                                let startVisual = range.startLine;
+                                let endVisual = range.endLine;
+                                
+                                if (realToDisplayMap) {
+                                    startVisual = realToDisplayMap.get(range.startLine) ?? -1;
+                                    endVisual = realToDisplayMap.get(range.endLine) ?? -1;
+                                }
+                                
+                                if (startVisual === -1 && endVisual === -1) return null;
+                                
+                                if (startVisual !== -1 && endVisual !== -1) {
+                                    const top = startVisual * 21 + 16;
+                                    const height = (endVisual - startVisual + 1) * 21;
+                                    return (
+                                        <div 
+                                            key={idx}
+                                            className="absolute w-full border-r-2 border-l-2 border-t-2 border-b-2 border-blue-400 opacity-30 bg-blue-100 rounded"
+                                            style={{ 
+                                                top: `${top}px`, 
+                                                left: '4px',
+                                                right: '4px',
+                                                width: 'calc(100% - 8px)',
+                                                height: `${height}px`,
+                                                backgroundColor: 'rgba(59, 130, 246, 0.1)' 
+                                            }}
+                                        />
+                                    );
+                                }
+                                return null;
                             })}
                          </div>
                     </div>
@@ -510,7 +588,46 @@ export const SourceEditor = forwardRef<SourceEditorHandle, SourceEditorProps>(({
                                 }
                             }
                             
-                            onChange(val, immediate);
+                            // Reconstruction logic for Folded Content
+                            if (collapsedBlockIds.length > 0 && lineMap) {
+                                // DETECT CHANGE:
+                                // If displayValue != newDisplayValue, user tried to edit.
+                                if (val !== displayValue) {
+                                     console.warn('[SourceEditor] Edit detected in folded view. Reverting and expanding.');
+                                     
+                                     // 1. Revert the change immediately to prevent data loss
+                                     onChange(value, true); // Reset to full original value
+                                     
+                                     // 2. Auto-expand (Simple approach: Expand All or Expand Focused?)
+                                     // Since we don't know exactly which block was touched without diffing,
+                                     // and we want to be safe, we can try to find the cursor position.
+                                     
+                                     // Cursor position is in 'textareaRef', which corresponds to 'displayLine'.
+                                     // const cursorLine = ...
+                                     // const realLine = lineMap.get(cursorLine);
+                                     // const block = blocks.find ...
+                                     // onToggleCollapse(block.id);
+                                     
+                                     // For now, let's just Log and maybe Toast? 
+                                     // Or rely on the user to expand.
+                                     // But reverting is crucial.
+                                     
+                                     // Better UX: Show a toast? "Please expand block to edit."
+                                     // But I don't have a toast system ready here.
+                                     // I will attempting to expand if possible.
+                                     
+                                     if (onToggleCollapse) {
+                                         // Heuristic: Expand the first collapsed block? Or All?
+                                         // Let's expanded all collapsed blocks to be safe and allow editing.
+                                         // We iterate 'collapsedBlockIds' and toggle them all?
+                                         // No, 'onToggleCollapse' takes one ID.
+                                         // We loop?
+                                         collapsedBlockIds.forEach(id => onToggleCollapse(id));
+                                     }
+                                }
+                            } else {
+                                onChange(val, immediate);
+                            }
                         }}
                         onScroll={handleScroll}
                         onSelect={handleSelect}

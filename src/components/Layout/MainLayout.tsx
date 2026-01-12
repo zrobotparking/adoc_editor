@@ -23,6 +23,9 @@ interface MainLayoutProps {
   onToggleAutoReveal?: () => void;
   
   onGeneratePdf?: () => void;
+  // New Setting
+  highlightSourceOnPreviewClick?: boolean;
+  onToggleHighlightSourceOnPreviewClick?: () => void;
 }
 
 export const MainLayout: React.FC<MainLayoutProps> = ({ 
@@ -39,7 +42,9 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
   onToggleBlockHighlight,
   autoReveal = true,
   onToggleAutoReveal,
-  onGeneratePdf
+  onGeneratePdf,
+  highlightSourceOnPreviewClick = false,
+  onToggleHighlightSourceOnPreviewClick
 }) => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -98,6 +103,8 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
                 onToggleBlockHighlight={onToggleBlockHighlight || (() => {})}
                 autoReveal={autoReveal}
                 onToggleAutoReveal={onToggleAutoReveal || (() => {})}
+                highlightSourceOnPreviewClick={highlightSourceOnPreviewClick}
+                onToggleHighlightSourceOnPreviewClick={onToggleHighlightSourceOnPreviewClick || (() => {})}
               />
           </div>
       )}
