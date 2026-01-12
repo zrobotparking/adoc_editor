@@ -37,6 +37,29 @@ function App() {
       console.timeEnd('App Render Total');
   });
 
+  // Persistence Helper
+  const STORAGE_KEY = 'adoc_editor_state';
+  const getInitialState = () => {
+      try {
+          const saved = localStorage.getItem(STORAGE_KEY);
+          if (saved) {
+              const parsed = JSON.parse(saved);
+              // Validate structure roughly
+              if (parsed.files && typeof parsed.files === 'object') {
+                  return parsed;
+              }
+          }
+      } catch (e) {
+          console.error('Failed to load state', e);
+      }
+      return {
+          files: { 'example.adoc': INITIAL_CONTENT },
+          activeFile: 'example.adoc'
+      };
+  };
+
+  const initialState = useMemo(() => getInitialState(), []);
+
   const [showTestPage, setShowTestPage] = useState(false);
 
   // Multi-File State with History
@@ -47,12 +70,21 @@ function App() {
       redo: redoFiles,
       canUndo,
       canRedo
-  } = useHistory<Record<string, string>>({
-      'example.adoc': INITIAL_CONTENT
-  }, 2000);
+  } = useHistory<Record<string, string>>(initialState.files, 2000);
 
-  const [activeFile, setActiveFile] = useState<string | null>('example.adoc');
+  const [activeFile, setActiveFile] = useState<string | null>(initialState.activeFile);
   const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
+
+  // Persist State Changes
+  useEffect(() => {
+      const stateToSave = {
+          files,
+          activeFile
+      };
+      // Debounce saving slightly to avoid heavy IO on every keystroke if files are huge?
+      // For now, simple save is likely fine for this scale.
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(stateToSave));
+  }, [files, activeFile]);
 
   // Derived current content (fallback to empty if no file)
   const content = activeFile ? (files[activeFile] || '') : '';
@@ -231,6 +263,13 @@ function App() {
   // Highlight state
   const [highlightedBlockIds, setHighlightedBlockIds] = useState<string[]>([]);
   const [selectedText, setSelectedText] = useState<string>('');
+  
+  // Collapse State (New)
+  const [collapsedBlockIds, setCollapsedBlockIds] = useState<string[]>([]);
+  
+  const handleToggleCollapse = useCallback((id: string) => {
+      setCollapsedBlockIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
+  }, []);
 
   const handleSelectionChange = useCallback((selection: { startLine: number, endLine: number, text: string }) => {
       const { startLine, endLine, text } = selection;
@@ -252,6 +291,11 @@ function App() {
       if (ids.length > 0 && previewRef.current && autoReveal) {
            // If we are currently processing a scroll initiated by Preview, ignore this (unlikely to happen during selection but safe)
            // Also check if we are already syncing to prevent re-triggering
+           // AND check if block is collapsed? Maybe auto-expand?
+           // For now, respect collapse state or auto-expand if needed.
+           // Let's auto-expand if user selects text in source?
+           // setCollapsedBlockIds(prev => prev.filter(pid => pid !== ids[0])); // Auto-expand? maybe annoying.
+
            if (!isSyncingFromPreview.current && !isSyncingFromSource.current) {
                 isSyncingFromSource.current = true;
                 previewRef.current.scrollToBlock(ids[0]);
@@ -352,6 +396,10 @@ function App() {
           highlightedRanges={activeRanges}
           onUndo={handleUndo}
           onRedo={handleRedo}
+          // Collapse Props
+          blocks={blocks}
+          collapsedBlockIds={collapsedBlockIds}
+          onToggleCollapse={handleToggleCollapse}
         />
       }
       preview={
@@ -366,6 +414,9 @@ function App() {
             highlightText={selectedText}
             onScroll={handlePreviewScroll}
             files={deferredFiles}
+            // Collapse Props
+            collapsedBlockIds={collapsedBlockIds}
+            onToggleCollapse={handleToggleCollapse}
         />
       }
     />

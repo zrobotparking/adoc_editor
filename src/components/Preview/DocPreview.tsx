@@ -18,6 +18,8 @@ interface DocPreviewProps {
     highlightText?: string;
     onScroll?: (scrollTop: number, ratio: number) => void;
     files?: Record<string, string>;
+    collapsedBlockIds?: string[];
+    onToggleCollapse?: (id: string) => void;
 }
 
 // Memoized to prevent re-renders when deferred props haven't changed
@@ -30,7 +32,9 @@ export const DocPreview = React.memo(forwardRef<DocPreviewHandle, DocPreviewProp
     highlightedBlockIds = [],
     highlightText,
     onScroll,
-    files
+    files,
+    collapsedBlockIds = [],
+    onToggleCollapse
 }, ref) => {
     // ... implementation ...
     const containerRef = useRef<HTMLDivElement>(null);
@@ -77,6 +81,9 @@ export const DocPreview = React.memo(forwardRef<DocPreviewHandle, DocPreviewProp
                     onEdit={() => onEditBlock(block.id, block.type)}
                     onUpdate={(content) => onUpdateBlock(block.id, content)}
                     onCancel={onCancelEdit}
+                    // Collapse Props
+                    isCollapsed={collapsedBlockIds.includes(block.id)}
+                    onToggleCollapse={() => onToggleCollapse && onToggleCollapse(block.id)}
                 />
             ))}
         </div>

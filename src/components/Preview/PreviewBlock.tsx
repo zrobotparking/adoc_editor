@@ -21,6 +21,8 @@ interface PreviewBlockProps {
     onUpdate: (content: string | any) => void;
     onCancel: () => void;
     files?: Record<string, string>;
+    isCollapsed?: boolean;
+    onToggleCollapse?: () => void;
 }
 
 export const PreviewBlock: React.FC<PreviewBlockProps> = ({ 
@@ -31,7 +33,9 @@ export const PreviewBlock: React.FC<PreviewBlockProps> = ({
     onEdit, 
     onUpdate,
     onCancel,
-    files = {}
+    files = {},
+    isCollapsed = false,
+    onToggleCollapse
 }) => {
     const [html, setHtml] = useState('');
 
@@ -108,7 +112,7 @@ export const PreviewBlock: React.FC<PreviewBlockProps> = ({
 
             setHtml(converted);
         }
-    }, [block, isEditing, isHighlighted, highlightText]);
+    }, [block, isEditing, isHighlighted, highlightText, files]); // Added files dependency
 
     // Handle Click Outside to Auto-Close
     const editContainerRef = React.useRef<HTMLDivElement>(null);
@@ -185,18 +189,48 @@ export const PreviewBlock: React.FC<PreviewBlockProps> = ({
             }`}
             onClick={(e) => {
                 e.stopPropagation();
+                if (!isCollapsed) onEdit(); // Only edit if expanded? Or double click? 
+                // User said: "按一下可以把顯示block收合 ... 2邊都可以點". 
+                // Wait, if clicking toggles collapse, how do we edit?
+                // The prompt says: "have a small indicator... click to collapse".
+                // So clicking the BLOCK edits, clicking the INDICATOR collapses.
                 onEdit();
             }}
         >
-             {/* Hover indicator */}
-            <div className="absolute top-0 right-0 p-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <span className="text-xs bg-blue-100 text-blue-800 px-1 rounded">Edit</span>
-            </div>
+             {/* Collapse Indicator - Top Left */}
+             {onToggleCollapse && (
+                 <div
+                    className="absolute top-1 left-0 z-10 p-1 cursor-pointer opacity-50 hover:opacity-100 transition-opacity"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onToggleCollapse();
+                    }}
+                    title={isCollapsed ? "Expand" : "Collapse"}
+                 >
+                     <span className="text-gray-500 text-xs font-bold leading-none bg-app-base border border-explorer-border rounded px-1">
+                         {isCollapsed ? '+' : '-'}
+                     </span>
+                 </div>
+             )}
 
-            <div 
-                className={`prose max-w-none ${isHighlighted ? 'highlight-content' : ''}`}
-                dangerouslySetInnerHTML={{ __html: html }}
-            />
+             {/* Hover indicator for Edit (Top Right) */}
+             {!isCollapsed && (
+                <div className="absolute top-0 right-0 p-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <span className="text-xs bg-blue-100 text-blue-800 px-1 rounded">Edit</span>
+                </div>
+             )}
+
+             {isCollapsed ? (
+                 <div className="p-2 text-gray-400 font-mono text-sm italic border border-dashed border-gray-300 rounded">
+                     {/* Show a preview snippet? */}
+                     {block.type === 'table' ? `Table (${block.table.rows.length} rows)` : `${block.content.substring(0, 50)}...`}
+                 </div>
+             ) : (
+                <div 
+                    className={`prose max-w-none ${isHighlighted ? 'highlight-content' : ''}`}
+                    dangerouslySetInnerHTML={{ __html: html }}
+                />
+             )}
         </div>
     );
 };

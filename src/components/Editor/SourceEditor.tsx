@@ -7,6 +7,9 @@ export interface SourceEditorHandle {
     scrollTo: (ratio: number) => void;
 }
 
+// Update Interface
+import type { Block } from '../../core/types';
+
 interface SourceEditorProps {
     value: string;
     onChange: (value: string, immediate?: boolean) => void;
@@ -16,6 +19,10 @@ interface SourceEditorProps {
     highlightedRanges?: { startLine: number, endLine: number }[];
     onUndo?: () => void;
     onRedo?: () => void;
+    // New Props for Collapsing
+    blocks?: Block[];
+    collapsedBlockIds?: string[];
+    onToggleCollapse?: (id: string) => void;
 }
 
 export const SourceEditor = forwardRef<SourceEditorHandle, SourceEditorProps>(({ 
@@ -26,7 +33,10 @@ export const SourceEditor = forwardRef<SourceEditorHandle, SourceEditorProps>(({
     onSelectionChange,
     highlightedRanges = [],
     onUndo,
-    onRedo
+    onRedo,
+    blocks = [],
+    collapsedBlockIds = [],
+    onToggleCollapse
 }, ref) => {
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const overlayRef = useRef<HTMLPreElement>(null);
@@ -334,6 +344,21 @@ export const SourceEditor = forwardRef<SourceEditorHandle, SourceEditorProps>(({
         
         const renderedItems: React.ReactNode[] = [];
 
+        // Pre-calculate block starts for current view range to avoid O(N*M) inside loop?
+        // Actually blocks is sorted by line usually.
+        // Let's create a map for O(1) lookup: line -> blockId
+        // Only needed for visible lines.
+        const lineBlockMap = new Map<number, string>();
+        blocks.forEach(b => {
+            if (b.type !== 'text' || b.content.trim().length > 0) { // Only collapsible blocks?
+                // Actually, usually we collapse headers or tables.
+                // Let's allow collapsing any block defined by parser.
+                // Index by startLine.
+                // Constraint: One block starts per line? usually yes.
+                lineBlockMap.set(b.startLine, b.id);
+            }
+        });
+
         // Spacer Top
         if (startLine > 0) {
             renderedItems.push(<div key="spacer-top" style={{ height: `${startLine * rowHeight}px` }} />);
@@ -341,13 +366,32 @@ export const SourceEditor = forwardRef<SourceEditorHandle, SourceEditorProps>(({
 
         for (let i = startLine; i < endLine; i++) {
             const hasError = errorMap.has(i);
+            const blockId = lineBlockMap.get(i);
+            const isCollapsed = blockId ? collapsedBlockIds.includes(blockId) : false;
+
             renderedItems.push(
-                <div key={i} className="relative h-[21px]">
+                <div key={i} className="relative h-[21px] flex items-center justify-end pr-5 group">
+                    {/* Error Icon */}
                     {hasError && (
                         <span className="absolute left-0 text-yellow-500 font-bold" title={errorMap.get(i)?.[0].message}>
                             !
                         </span>
                     )}
+                    
+                    {/* Collapse Toggle - Moved to Right */}
+                    {blockId && onToggleCollapse && (
+                         <div 
+                            className="absolute right-1 cursor-pointer text-gray-400 hover:text-white text-[10px] leading-none flex items-center justify-center h-full w-3"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onToggleCollapse(blockId);
+                            }}
+                            title={isCollapsed ? "Expand" : "Collapse"}
+                         >
+                             {isCollapsed ? '▶' : '▼'}
+                         </div>
+                    )}
+
                     {i + 1}
                 </div>
             );
@@ -386,11 +430,11 @@ export const SourceEditor = forwardRef<SourceEditorHandle, SourceEditorProps>(({
                 {/* Gutter */}
                 <div 
                     ref={gutterRef}
-                    className="w-12 bg-editor-gutter text-editor-gutter-text text-right font-mono text-sm leading-relaxed p-4 pr-2 select-none overflow-hidden border-r border-explorer-border"
+                    className="w-14 bg-editor-gutter text-editor-gutter-text text-right font-mono text-sm leading-relaxed p-4 pr-1 select-none overflow-hidden border-r border-explorer-border"
                     style={{ 
                         ...editorStyle,
                         fontFamily: 'monospace', // Gutter can stay default mono or match
-                        width: '48px',
+                        width: '56px',
                         paddingTop: '16px' 
                     }}
                 >
