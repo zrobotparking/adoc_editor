@@ -110,9 +110,34 @@ export const PreviewBlock: React.FC<PreviewBlockProps> = ({
         }
     }, [block, isEditing, isHighlighted, highlightText]);
 
+    // Handle Click Outside to Auto-Close
+    const editContainerRef = React.useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (!isEditing) return;
+
+        const handleClickOutside = (event: MouseEvent) => {
+            // Check if click is outside the edit container
+            if (editContainerRef.current && !editContainerRef.current.contains(event.target as Node)) {
+                // Optional: Ignore if click is on a portal/overlay (if any exist in future)
+                // For now, straightforward check.
+                onCancel();
+            }
+        };
+
+        // Use mousedown to capture immediately (standard for dismissals)
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => {
+             document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [isEditing, onCancel]);
+
     if (isEditing) {
         return (
-            <div className="my-4 border-2 border-edit-border rounded-lg shadow-lg bg-edit-bg overflow-hidden">
+            <div 
+                ref={editContainerRef}
+                className="my-4 border-2 border-edit-border rounded-lg shadow-lg bg-edit-bg overflow-hidden"
+            >
                 <div className="flex justify-between items-center p-2 bg-app-header border-b border-edit-border">
                     <span className="font-bold text-sm text-edit-label uppercase">
                         Editing {block.type}

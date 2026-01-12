@@ -187,6 +187,29 @@ export const SourceEditor = forwardRef<SourceEditorHandle, SourceEditorProps>(({
         }
     };
 
+    // Initialize Size and Sync Scroll on Mount
+    React.useEffect(() => {
+        // Measure initial height
+        if (textareaRef.current) {
+            setEditorHeight(textareaRef.current.clientHeight);
+            // Sync scroll state immediately in case browser restored scroll position
+            handleScroll();
+        }
+        
+        // Optional: ResizeObserver to handle window resize or split pane resize
+        const resizeObserver = new ResizeObserver(() => {
+             if (textareaRef.current) {
+                 setEditorHeight(textareaRef.current.clientHeight);
+                 handleScroll(); 
+             }
+        });
+        if (textareaRef.current) {
+             resizeObserver.observe(textareaRef.current);
+        }
+
+        return () => resizeObserver.disconnect();
+    }, []);
+
     console.time('Line Split');
     const lines = value.split('\n');
     console.timeEnd('Line Split');

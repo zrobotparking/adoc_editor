@@ -582,8 +582,9 @@ export class TableUtils {
           const parts = colsStr.split(',').map(s => s.trim());
           
           if (parts.length > 0) {
-               parts.splice(targetIndex, 0, '');
-               const newColsVal = parts.join(',');
+              // Fix: Use '1' instead of empty string to prevent "1,,1" syntax which distorts tables
+              parts.splice(targetIndex, 0, '1');
+              const newColsVal = parts.join(',');
                
                newMetadata = {
                    ...table.metadata,
