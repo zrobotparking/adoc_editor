@@ -122,7 +122,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
             style={{ height: outline ? `${explorerHeightPercent}%` : '100%' }}
         >
              <div className={`p-2 pl-3 border-b ${borderClass} font-bold ${headerBgClass} text-xs uppercase tracking-wider text-gray-400 select-none flex justify-between`}>
-                  <span>Explorer</span>
+                  <span>Side Bar</span>
              </div>
              <div className="flex-1 overflow-auto whitespace-nowrap">
                  {!isSidebarCollapsed && (explorer || <div className="opacity-50 text-sm p-4">No Folder Opened</div>)}

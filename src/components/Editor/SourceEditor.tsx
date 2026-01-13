@@ -5,6 +5,7 @@ import { EditorToolbar } from './EditorToolbar';
 
 export interface SourceEditorHandle {
     scrollTo: (ratio: number) => void;
+    scrollToLine: (line: number) => void;
 }
 
 // Update Interface
@@ -120,8 +121,35 @@ export const SourceEditor = forwardRef<SourceEditorHandle, SourceEditorProps>(({
                 if (overlayRef.current) overlayRef.current.scrollTop = targetScroll;
                 if (highlightLayerRef.current) highlightLayerRef.current.scrollTop = targetScroll;
             }
+        },
+        scrollToLine: (line: number) => {
+            if (textareaRef.current) {
+                // If lineMap exists (folding active), find the visual line number
+                let visualLine = line - 1; // 0-indexed
+                if (realToDisplayMap) {
+                     // Check if line is hidden or mapped
+                     if (realToDisplayMap.has(line)) {
+                        visualLine = realToDisplayMap.get(line)! - 1;
+                     } else {
+                         // Fallback logic: find nearest visible line
+                        let l = line;
+                        while(l > 0 && !realToDisplayMap.has(l)) { l--; }
+                        if (realToDisplayMap.has(l)) {
+                             visualLine = realToDisplayMap.get(l)! - 1;
+                        }
+                     }
+                }
+                
+                // Calculate pixel position (approx 21px per line)
+                const top = visualLine * 21;
+                
+                textareaRef.current.scrollTop = top;
+                if (gutterRef.current) gutterRef.current.scrollTop = top;
+                if (overlayRef.current) overlayRef.current.scrollTop = top;
+                if (highlightLayerRef.current) highlightLayerRef.current.scrollTop = top;
+            }
         }
-    }), [lineMap]); // Depend on lineMap?
+    }), [lineMap, realToDisplayMap]);
 
     // Helper to insert text at cursor
     const insertAtCursor = (prefix: string, suffix: string = '') => {

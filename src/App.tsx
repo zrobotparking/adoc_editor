@@ -422,23 +422,8 @@ function App() {
                         // 2. Scroll Source
                         const block = blocks.find(b => b.id === blockId);
                         if (block && sourceEditorRef.current) {
-                            // Assuming SourceEditor exposes scrollTo(line) or similar
-                            // Checking SourceEditorHandle... it has scrollTo(ratio).
-                            // We can approximate ratio or if we added scrollToLine?
-                            // For now, let's try setting active block to trigger highlight,
-                            // but usually we want to maintain view.
-                            
-                            // Let's use the ratio for now as a fallback if scrollToLine isn't exposed
-                            // Ratio = block.startLine / totalLines ?
-                            // Better: create a handler logic.
-                            // Accessing SourceEditorHandle.scrollToLine would be best.
-                            // If not available, we can trigger via activeBlockId logic?
-                            // But handleEditBlock sets activeBlockId.
-                            
-                            setActiveBlockId(blockId);
-                            
-                            // Let's try to scroll source to that line directly if possible
-                             // sourceEditorRef.current.scrollToLine(block.startLine); // If exists
+                            // Use newly exposed scrollToLine to navigate without setting active block (Editing Frame)
+                            sourceEditorRef.current.scrollToLine(block.startLine);
                         }
                     }}
                 />
