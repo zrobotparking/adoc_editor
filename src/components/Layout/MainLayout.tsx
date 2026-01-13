@@ -1,8 +1,9 @@
 import React, { type ReactNode, useState } from 'react';
 import { SettingsPanel } from '../Settings/SettingsPanel';
 
-interface MainLayoutProps {
+export interface MainLayoutProps {
   explorer?: ReactNode;
+  outline?: ReactNode;
   editor: ReactNode;
   preview: ReactNode;
   
@@ -30,6 +31,7 @@ interface MainLayoutProps {
 
 export const MainLayout: React.FC<MainLayoutProps> = ({ 
   explorer, 
+  outline,
   editor, 
   preview,
   isSyncSourceToPreview = true,
@@ -48,6 +50,42 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
 }) => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  
+  // Split View State
+  const [explorerHeightPercent, setExplorerHeightPercent] = useState(60); // Default 60% height for Explorer
+  const sidebarRef = React.useRef<HTMLDivElement>(null);
+  const isResizing = React.useRef(false);
+
+  const startResizing = React.useCallback(() => {
+    isResizing.current = true;
+    document.body.style.cursor = 'row-resize';
+    document.body.style.userSelect = 'none';
+
+    const handleMouseMove = (e: MouseEvent) => {
+        if (!sidebarRef.current) return;
+        const sidebarRect = sidebarRef.current.getBoundingClientRect();
+        const relativeY = e.clientY - sidebarRect.top;
+        const totalHeight = sidebarRect.height;
+        
+        let newPercent = (relativeY / totalHeight) * 100;
+        // Clamp
+        if (newPercent < 10) newPercent = 10;
+        if (newPercent > 90) newPercent = 90;
+        
+        setExplorerHeightPercent(newPercent);
+    };
+
+    const handleMouseUp = () => {
+        isResizing.current = false;
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+        window.removeEventListener('mousemove', handleMouseMove);
+        window.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+  }, []);
 
   // Theme Classes - Using Semantic Variables
   const bgClass = 'bg-app-base text-text-primary';
@@ -57,21 +95,55 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
 
   return (
     <div className={`flex h-screen w-screen overflow-hidden ${bgClass}`}>
-      {/* Left Pane: Project Explorer (Collapsible) */}
+      {/* Left Pane: Sidebar (Collapsible) */}
       <div 
+        ref={sidebarRef}
         className={`${
           isSidebarCollapsed ? 'w-0' : 'w-64'
         } border-r ${borderClass} ${sidebarBgClass} flex flex-col transition-all duration-300 relative`}
       >
-        <div className={`p-3 border-b ${borderClass} font-bold ${headerBgClass} flex justify-between items-center whitespace-nowrap overflow-hidden`}>
-          <span>Explorer</span>
-          <button onClick={() => setIsSidebarCollapsed(true)} className="p-1 hover:opacity-75 rounded">
-             &lt;
-          </button>
+        {/* Collapse Button Header (Global) */}
+        {!isSidebarCollapsed && (
+             <div className="absolute top-2 right-2 z-10">
+                 <button onClick={() => setIsSidebarCollapsed(true)} className="p-1 hover:bg-white/10 rounded text-gray-400">
+                    &lt;
+                 </button>
+             </div>
+        )}
+
+        {/* Section 1: Explorer */}
+        <div 
+            className="flex flex-col min-h-0"
+            style={{ height: outline ? `${explorerHeightPercent}%` : '100%' }}
+        >
+             <div className={`p-2 pl-3 border-b ${borderClass} font-bold ${headerBgClass} text-xs uppercase tracking-wider text-gray-400 select-none flex justify-between`}>
+                  <span>Explorer</span>
+             </div>
+             <div className="flex-1 overflow-auto whitespace-nowrap">
+                 {!isSidebarCollapsed && (explorer || <div className="opacity-50 text-sm p-4">No Folder Opened</div>)}
+             </div>
         </div>
-        <div className="flex-1 overflow-auto whitespace-nowrap">
-          {!isSidebarCollapsed && (explorer || <div className="opacity-50 text-sm p-2">No Folder Opened</div>)}
-        </div>
+
+        {/* Resizer & Section 2: Outline */}
+        {outline && (
+            <>
+                {/* Drag Handle */}
+                <div 
+                    className="h-1 bg-gray-700 hover:bg-blue-500 cursor-row-resize flex-shrink-0 transition-colors"
+                    onMouseDown={startResizing}
+                />
+                
+                {/* Outline Pane */}
+                <div className="flex flex-col flex-1 min-h-0">
+                     <div className={`p-2 pl-3 border-b ${borderClass} font-bold ${headerBgClass} text-xs uppercase tracking-wider text-gray-400 select-none`}>
+                          <span>Outline</span>
+                     </div>
+                     <div className="flex-1 overflow-auto whitespace-nowrap">
+                          {outline}
+                     </div>
+                </div>
+            </>
+        )}
       </div>
       
       {/* Sidebar Toggle Button (Visible when collapsed) */}
