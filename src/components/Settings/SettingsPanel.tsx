@@ -11,6 +11,8 @@ interface SettingsPanelProps {
     onToggleAutoReveal: () => void;
     highlightSourceOnPreviewClick: boolean;
     onToggleHighlightSourceOnPreviewClick: () => void;
+    historyLimit: number;
+    onHistoryLimitChange: (limit: number) => void;
 }
 
 export const SettingsPanel: React.FC<SettingsPanelProps> = ({ 
@@ -23,7 +25,9 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     autoReveal,
     onToggleAutoReveal,
     highlightSourceOnPreviewClick,
-    onToggleHighlightSourceOnPreviewClick
+    onToggleHighlightSourceOnPreviewClick,
+    historyLimit,
+    onHistoryLimitChange
 }) => {
     if (!isOpen) return null;
 
@@ -47,6 +51,18 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                         Light
                     </button>
                 </div>
+            </div>
+
+            <div className="mb-4 space-y-2">
+                <label className="block text-sm font-medium mb-1 text-text-secondary">Undo History Limit</label>
+                <input 
+                    type="number" 
+                    min="1" 
+                    max="1000"
+                    value={historyLimit}
+                    onChange={(e) => onHistoryLimitChange(parseInt(e.target.value) || 50)}
+                    className="w-full px-2 py-1 bg-app-base border border-gray-600 rounded text-text-primary text-sm focus:outline-none focus:border-blue-500"
+                />
             </div>
 
             <div className="mb-4 space-y-2">

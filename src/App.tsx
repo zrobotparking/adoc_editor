@@ -63,6 +63,9 @@ function App() {
   const initialState = useMemo(() => getInitialState(), []);
 
   const [showTestPage, setShowTestPage] = useState(false);
+  const [historyLimit, setHistoryLimit] = useState(50);
+
+
 
   // Multi-File State with History
   const {
@@ -72,7 +75,7 @@ function App() {
       redo: redoFiles,
       canUndo,
       canRedo
-  } = useHistory<Record<string, string>>(initialState.files, 2000);
+  } = useHistory<Record<string, string>>(initialState.files, 2000, historyLimit);
 
   const [activeFile, setActiveFile] = useState<string | null>(initialState.activeFile);
   const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
@@ -396,6 +399,8 @@ function App() {
             onGeneratePdf={handleGeneratePdf}
             highlightSourceOnPreviewClick={highlightSourceOnPreviewClick}
             onToggleHighlightSourceOnPreviewClick={() => setHighlightSourceOnPreviewClick(prev => !prev)}
+            historyLimit={historyLimit}
+            onHistoryLimitChange={setHistoryLimit}
             explorer={
                 <FileExplorer 
                     files={files}

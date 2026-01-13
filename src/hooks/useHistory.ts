@@ -9,7 +9,7 @@ interface UseHistoryResult<T> {
   canRedo: boolean;
 }
 
-export function useHistory<T>(initialState: T, debounceTime: number = 2000): UseHistoryResult<T> {
+export function useHistory<T>(initialState: T, debounceTime: number = 2000, maxHistory: number = 50): UseHistoryResult<T> {
   const [history, setHistory] = useState<{
     past: T[];
     present: T;

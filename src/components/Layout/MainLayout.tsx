@@ -27,6 +27,9 @@ export interface MainLayoutProps {
   // New Setting
   highlightSourceOnPreviewClick?: boolean;
   onToggleHighlightSourceOnPreviewClick?: () => void;
+  // History
+  historyLimit?: number;
+  onHistoryLimitChange?: (limit: number) => void;
 }
 
 export const MainLayout: React.FC<MainLayoutProps> = ({ 
@@ -46,7 +49,9 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
   onToggleAutoReveal,
   onGeneratePdf,
   highlightSourceOnPreviewClick = false,
-  onToggleHighlightSourceOnPreviewClick
+  onToggleHighlightSourceOnPreviewClick,
+  historyLimit = 50,
+  onHistoryLimitChange
 }) => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -177,6 +182,8 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
                 onToggleAutoReveal={onToggleAutoReveal || (() => {})}
                 highlightSourceOnPreviewClick={highlightSourceOnPreviewClick}
                 onToggleHighlightSourceOnPreviewClick={onToggleHighlightSourceOnPreviewClick || (() => {})}
+                historyLimit={historyLimit}
+                onHistoryLimitChange={onHistoryLimitChange || (() => {})}
               />
           </div>
       )}
