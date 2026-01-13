@@ -204,6 +204,29 @@ export class BasicPipeParser implements TableParser {
 
                     // 3. Reset for next text
                     // textStartLine remains -1, will be set on next iteration if regular text
+                } else if (trimmedLine === '') {
+                    // EMPTY LINE SPLIT
+                    // 1. Flush Pending Text
+                    if (textContentLines.length > 0) {
+                        blocks.push({
+                            id: `block-${blockIndex++}`,
+                            type: 'text',
+                            content: textContentLines.join('\n'),
+                            startLine: textStartLine,
+                            endLine: i - 1
+                        });
+                        textContentLines = [];
+                        textStartLine = -1;
+                    }
+
+                    // 2. Push Empty Block (Spacer)
+                    blocks.push({
+                         id: `block-${blockIndex++}`,
+                         type: 'text',
+                         content: line,
+                         startLine: i,
+                         endLine: i
+                    });
                 } else {
                     // Regular text line
                     if (textStartLine === -1) {

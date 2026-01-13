@@ -544,7 +544,8 @@ export const SourceEditor = forwardRef<SourceEditorHandle, SourceEditorProps>(({
                                 if (startVisual === -1 && endVisual === -1) return null;
                                 
                                 if (startVisual !== -1 && endVisual !== -1) {
-                                    const top = startVisual * 21 + 16;
+                                    // Adjusted top offset to 14px to align better with text (compensating for border/font baseline)
+                                    const top = startVisual * 21 + 14; 
                                     const height = (endVisual - startVisual + 1) * 21;
                                     return (
                                         <div 
