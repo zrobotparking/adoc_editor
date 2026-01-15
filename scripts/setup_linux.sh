@@ -23,5 +23,5 @@ if [ $? -ne 0 ]; then
 fi
 
 echo "[INFO] Starting Dev Server..."
-echo "[INFO] The application will be available at http://localhost:5173"
-npm run dev
+echo "[INFO] The application will be available at http://localhost:5173 and on your network."
+npm run dev -- --host
