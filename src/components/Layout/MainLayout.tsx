@@ -32,8 +32,11 @@ export interface MainLayoutProps {
   onHistoryLimitChange?: (limit: number) => void;
 }
 
-export const MainLayout: React.FC<MainLayoutProps> = ({ 
+import { ActivityBar, type Activity } from '../Sidebar/ActivityBar';
+
+export const MainLayout: React.FC<MainLayoutProps & { search?: ReactNode }> = ({ 
   explorer, 
+  search,
   outline,
   editor, 
   preview,
@@ -53,6 +56,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
   historyLimit = 50,
   onHistoryLimitChange
 }) => {
+  const [activeActivity, setActiveActivity] = useState<Activity>('explorer');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   
@@ -100,6 +104,12 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
 
   return (
     <div className={`flex h-screen w-screen overflow-hidden ${bgClass}`}>
+      {/* Activity Bar */}
+      <ActivityBar activeActivity={activeActivity} onActivityChange={(activity) => {
+          setActiveActivity(activity);
+          if (isSidebarCollapsed) setIsSidebarCollapsed(false);
+      }} />
+
       {/* Left Pane: Sidebar (Collapsible) */}
       <div 
         ref={sidebarRef}
@@ -116,38 +126,53 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
              </div>
         )}
 
-        {/* Section 1: Explorer */}
-        <div 
-            className="flex flex-col min-h-0"
-            style={{ height: outline ? `${explorerHeightPercent}%` : '100%' }}
-        >
-             <div className={`p-2 pl-3 border-b ${borderClass} font-bold ${headerBgClass} text-xs uppercase tracking-wider text-gray-400 select-none flex justify-between`}>
-                  <span>Side Bar</span>
-             </div>
-             <div className="flex-1 overflow-auto whitespace-nowrap">
-                 {!isSidebarCollapsed && (explorer || <div className="opacity-50 text-sm p-4">No Folder Opened</div>)}
-             </div>
-        </div>
-
-        {/* Resizer & Section 2: Outline */}
-        {outline && (
+        {/* Sidebar Content Switcher */}
+        {activeActivity === 'explorer' ? (
             <>
-                {/* Drag Handle */}
+                {/* Section 1: Explorer */}
                 <div 
-                    className="h-1 bg-gray-700 hover:bg-blue-500 cursor-row-resize flex-shrink-0 transition-colors"
-                    onMouseDown={startResizing}
-                />
-                
-                {/* Outline Pane */}
-                <div className="flex flex-col flex-1 min-h-0">
-                     <div className={`p-2 pl-3 border-b ${borderClass} font-bold ${headerBgClass} text-xs uppercase tracking-wider text-gray-400 select-none`}>
-                          <span>Outline</span>
+                    className="flex flex-col min-h-0"
+                    style={{ height: outline ? `${explorerHeightPercent}%` : '100%' }}
+                >
+                     <div className={`p-2 pl-3 border-b ${borderClass} font-bold ${headerBgClass} text-xs uppercase tracking-wider text-gray-400 select-none flex justify-between`}>
+                          <span>Explorer</span>
                      </div>
                      <div className="flex-1 overflow-auto whitespace-nowrap">
-                          {outline}
+                         {!isSidebarCollapsed && (explorer || <div className="opacity-50 text-sm p-4">No Folder Opened</div>)}
                      </div>
                 </div>
+
+                {/* Resizer & Section 2: Outline */}
+                {outline && (
+                    <>
+                        {/* Drag Handle */}
+                        <div 
+                            className="h-1 bg-gray-700 hover:bg-blue-500 cursor-row-resize flex-shrink-0 transition-colors"
+                            onMouseDown={startResizing}
+                        />
+                        
+                        {/* Outline Pane */}
+                        <div className="flex flex-col flex-1 min-h-0">
+                             <div className={`p-2 pl-3 border-b ${borderClass} font-bold ${headerBgClass} text-xs uppercase tracking-wider text-gray-400 select-none`}>
+                                  <span>Outline</span>
+                             </div>
+                             <div className="flex-1 overflow-auto whitespace-nowrap">
+                                  {outline}
+                             </div>
+                        </div>
+                    </>
+                )}
             </>
+        ) : (
+            /* Search View */
+            <div className="flex flex-col h-full">
+                <div className={`p-2 pl-3 border-b ${borderClass} font-bold ${headerBgClass} text-xs uppercase tracking-wider text-gray-400 select-none`}>
+                    <span>Search</span>
+                </div>
+                <div className="flex-1 overflow-hidden">
+                    {search}
+                </div>
+            </div>
         )}
       </div>
       
@@ -157,7 +182,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
               <button 
                 onClick={() => setIsSidebarCollapsed(false)} 
                 className="p-2 hover:opacity-75 rounded opacity-70 hover:opacity-100 mb-4"
-                title="Expand Explorer"
+                title="Expand Sidebar"
               >
                   📁
               </button>
@@ -236,51 +261,6 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
               </button>
           </div>
           <div className="flex-1 overflow-auto bg-preview-bg text-preview-text p-4 relative" id="preview-container">
-              {/* Ensure relative positioning for absolute children if any. 
-                  Note: We might need to attach ref here if we want to scroll THIS container 
-                  Or is DocPreview the container? DocPreview renders a div with overflow.
-                  MainLayout renders a div with overflow-auto (Line 41).
-                  
-                  Wait, MainLayout Line 41: overflow-auto.
-                  DocPreview Line 21: min-h-full (but no overflow).
-                  
-                  So MainLayout IS the scroll container for Preview.
-                  Wait, if MainLayout is the scroll container, then DocPreview ref won't help us scroll!
-                  
-                  Correction: I should pass a REF to MainLayout for the preview container.
-                  OR, remove overflow from MainLayout and let DocPreview handle overflow.
-                  
-                  Current DocPreview: "asciidoc-preview ... min-h-full"
-                  It does NOT have overflow-auto.
-                  
-                  So MainLayout is the scroller.
-                  
-                  I must change MainLayout to NOT be the scroller, and let DocPreview be the scroller.
-                  Or pass ref to MainLayout's preview container.
-                  
-                  Let's make DocPreview the scroller. It's cleaner for encapsulation.
-              */}
-              {/* Remove overflow here if DocPreview handles it. Let's make DocPreview handle it by passing className="h-full overflow-auto" */}
-              
-              {/* Actually, let's keep MainLayout simple. I will inject a style to unset overflow here if needed, 
-                  but better yet: Let's assume passed 'preview' component handles its own scrolling?
-                  
-                  If I change MainLayout line 41 to just 'flex-1 overflow-hidden', then DocPreview needs 'overflow-auto'.
-                  
-                  Let's check DocPreview again.
-                  DocPreview line 22: "asciidoc-preview ... min-h-full". No overflow.
-                  
-                  If I change MainLayout now, existing layout breaks?
-                  Line 41 currently: "flex-1 overflow-auto ..."
-                  
-                  If I want DocPreview to be scrollable via ref, I need the ref on the SCROLLABLE element.
-                  Line 41 is the scrollable element.
-                  
-                  Option A: Pass ref to MainLayout for previewPane.
-                  Option B: Move scrolling into DocPreview (change MainLayout line 41 to overflow-hidden, add overflow-auto to DocPreview).
-                  
-                  Option B is better for component isolation. DocPreview should contain its scroll logic.
-              */}
               <div className="h-full w-full overflow-hidden">
                    {preview}
               </div>

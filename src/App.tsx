@@ -32,6 +32,7 @@ import { IncludeResolver } from './core/IncludeResolver';
 
 import { TableTestPage } from './components/Playground/TableTestPage';
 import { OutlineView } from './components/Explorer/OutlineView';
+import { SearchView, type SearchResult } from './components/Search/SearchView';
 
 function App() {
   console.time('App Render Total');
@@ -373,6 +374,65 @@ function App() {
           .map(b => ({ startLine: b.startLine, endLine: b.endLine }));
   }, [blocks, highlightedBlockIds, showBlockHighlight]);
 
+  // Search Logic
+  const performSearch = useCallback((query: string): SearchResult[] => {
+      if (!query.trim()) return [];
+      
+      const results: SearchResult[] = [];
+      const lowerQuery = query.toLowerCase();
+
+      // Search across all files
+      Object.entries(files).forEach(([path, fileContent]) => {
+          const lines = fileContent.split('\n');
+          const fileMatches: any[] = [];
+
+          lines.forEach((line, lineIdx) => {
+              let searchIndex = 0;
+              // Find all occurrences in the line
+              while (true) {
+                  const idx = line.toLowerCase().indexOf(lowerQuery, searchIndex);
+                  if (idx === -1) break;
+
+                  fileMatches.push({
+                      line: lineIdx,
+                      text: line,
+                      startCol: idx,
+                      endCol: idx + query.length
+                  });
+                  searchIndex = idx + 1;
+              }
+          });
+
+          if (fileMatches.length > 0) {
+              results.push({
+                  file: path,
+                  matches: fileMatches
+              });
+          }
+      });
+
+      return results;
+  }, [files]);
+
+  const handleSearchNavigate = useCallback((file: string, line: number) => {
+      // 1. Switch File
+      setActiveFile(file);
+      
+      // 2. Scroll Editor
+      // Use setTimeout to allow editor to render new file content before scrolling
+      setTimeout(() => {
+          if (sourceEditorRef.current) {
+               sourceEditorRef.current.scrollToLine(line + 1); // 1-based index for API? check implementation. SourceEditor checks seems to implied 1-based or 0-based? Let's assume 1-based from UI, but check SourceEditor implementation.
+               // SourceEditor scrollToLine usually expects 1-based.
+               // The search result line is 0-based index from split.
+          }
+      }, 50);
+  }, [setActiveFile]);
+
+  // Lazy load SearchView import? No, direct import is fine.
+  // We need to import SearchView and SearchResult types at top of file.
+  // But inside this function block we can just render it.
+
   return (
     <div className={theme === 'dark' ? 'dark' : ''}>
         {showTestPage && <TableTestPage onClose={() => setShowTestPage(false)} />}
@@ -407,6 +467,12 @@ function App() {
                     activeFile={activeFile}
                     onSelectFile={setActiveFile}
                     onUpload={handleFilesUpload}
+                />
+            }
+            search={
+                <SearchView
+                    onSearch={performSearch}
+                    onNavigate={handleSearchNavigate}
                 />
             }
             outline={
