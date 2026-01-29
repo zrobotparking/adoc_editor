@@ -33,6 +33,8 @@ import { IncludeResolver } from './core/IncludeResolver';
 import { TableTestPage } from './components/Playground/TableTestPage';
 import { OutlineView } from './components/Explorer/OutlineView';
 import { SearchView, type SearchResult } from './components/Search/SearchView';
+import { GitView } from './components/Git/GitView';
+import { GitImportDialog } from './components/Git/GitImportDialog';
 
 function App() {
   console.time('App Render Total');
@@ -433,9 +435,43 @@ function App() {
   // We need to import SearchView and SearchResult types at top of file.
   // But inside this function block we can just render it.
 
+  const [isGitImportOpen, setIsGitImportOpen] = useState(false);
+
+  const handleGitImport = async (repoUrl: string, token?: string) => {
+      try {
+          const response = await fetch('/api/git-clone', {
+              method: 'POST',
+              body: JSON.stringify({ repoUrl, token })
+          });
+          
+          if (!response.ok) {
+              const err = await response.json();
+              throw new Error(err.error || 'Git clone failed');
+          }
+
+          const data = await response.json();
+          // data.files is array of { path, content }
+          handleFilesUpload(data.files);
+          
+          setIsGitImportOpen(false);
+          // Optional: switch to explorer?
+          // But maybe not, user might want to see git view status?
+          // For now, auto-switching to first file in handleFilesUpload handles activation.
+      } catch (e: any) {
+          console.error('Git Import Failed', e);
+          alert('Git Import Failed: ' + e.message);
+          throw e; // Propagate to dialog
+      }
+  };
+
   return (
     <div className={theme === 'dark' ? 'dark' : ''}>
         {showTestPage && <TableTestPage onClose={() => setShowTestPage(false)} />}
+        <GitImportDialog 
+            isOpen={isGitImportOpen}
+            onClose={() => setIsGitImportOpen(false)}
+            onImport={handleGitImport}
+        />
         
         <button 
             onClick={() => setShowTestPage(true)}
@@ -473,6 +509,11 @@ function App() {
                 <SearchView
                     onSearch={performSearch}
                     onNavigate={handleSearchNavigate}
+                />
+            }
+            git={
+                <GitView 
+                    onOpenImportDialog={() => setIsGitImportOpen(true)}
                 />
             }
             outline={

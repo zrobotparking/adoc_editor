@@ -34,9 +34,10 @@ export interface MainLayoutProps {
 
 import { ActivityBar, type Activity } from '../Sidebar/ActivityBar';
 
-export const MainLayout: React.FC<MainLayoutProps & { search?: ReactNode }> = ({ 
+export const MainLayout: React.FC<MainLayoutProps & { search?: ReactNode, git?: ReactNode }> = ({ 
   explorer, 
   search,
+  git,
   outline,
   editor, 
   preview,
@@ -163,7 +164,7 @@ export const MainLayout: React.FC<MainLayoutProps & { search?: ReactNode }> = ({
                     </>
                 )}
             </>
-        ) : (
+        ) : activeActivity === 'search' ? (
             /* Search View */
             <div className="flex flex-col h-full">
                 <div className={`p-2 pl-3 border-b ${borderClass} font-bold ${headerBgClass} text-xs uppercase tracking-wider text-gray-400 select-none`}>
@@ -171,6 +172,16 @@ export const MainLayout: React.FC<MainLayoutProps & { search?: ReactNode }> = ({
                 </div>
                 <div className="flex-1 overflow-hidden">
                     {search}
+                </div>
+            </div>
+        ) : (
+            /* Git View */
+            <div className="flex flex-col h-full">
+                <div className={`p-2 pl-3 border-b ${borderClass} font-bold ${headerBgClass} text-xs uppercase tracking-wider text-gray-400 select-none`}>
+                    <span>Source Control</span>
+                </div>
+                 <div className="flex-1 overflow-hidden">
+                    {git}
                 </div>
             </div>
         )}
