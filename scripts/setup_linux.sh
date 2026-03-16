@@ -1,6 +1,7 @@
 #!/bin/bash
 
 echo "[INFO] Starting AsciiDoc Editor Setup for Linux..."
+echo "Server started at: $(hostname -I | cut -d " " -f 1)"
 
 # Check if Node.js is installed
 if ! command -v node &> /dev/null; then
@@ -23,5 +24,7 @@ if [ $? -ne 0 ]; then
 fi
 
 echo "[INFO] Starting Dev Server..."
-echo "[INFO] The application will be available at http://localhost:5173 and on your network."
+
 npm run dev -- --host
+
+
